@@ -14,6 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_views: {
+        Row: {
+          created_at: string
+          id: string
+          network: string | null
+          reward: number
+          slot: string
+          tg_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          network?: string | null
+          reward?: number
+          slot: string
+          tg_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          network?: string | null
+          reward?: number
+          slot?: string
+          tg_id?: number
+        }
+        Relationships: []
+      }
+      admin_sessions: {
+        Row: {
+          admin_id: string
+          created_at: string
+          expires_at: string
+          token: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          expires_at: string
+          token: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          expires_at?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_sessions_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_super: boolean
+          password_hash: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_super?: boolean
+          password_hash: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_super?: boolean
+          password_hash?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -29,6 +109,170 @@ export type Database = {
           key?: string
           updated_at?: string
           value?: Json
+        }
+        Relationships: []
+      }
+      broadcasts: {
+        Row: {
+          button_text: string | null
+          button_url: string | null
+          created_at: string
+          failed_count: number
+          finished_at: string | null
+          id: string
+          image_url: string | null
+          message: string
+          sent_count: number
+          status: string
+        }
+        Insert: {
+          button_text?: string | null
+          button_url?: string | null
+          created_at?: string
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          image_url?: string | null
+          message: string
+          sent_count?: number
+          status?: string
+        }
+        Update: {
+          button_text?: string | null
+          button_url?: string | null
+          created_at?: string
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          image_url?: string | null
+          message?: string
+          sent_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      challenge_claims: {
+        Row: {
+          challenge_id: string
+          created_at: string
+          id: string
+          period_key: string
+          tg_id: number
+        }
+        Insert: {
+          challenge_id: string
+          created_at?: string
+          id?: string
+          period_key: string
+          tg_id: number
+        }
+        Update: {
+          challenge_id?: string
+          created_at?: string
+          id?: string
+          period_key?: string
+          tg_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_claims_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          created_at: string
+          description: string | null
+          goal: number
+          id: string
+          is_active: boolean
+          kind: string
+          period: string
+          reward: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          goal: number
+          id?: string
+          is_active?: boolean
+          kind: string
+          period?: string
+          reward: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          goal?: number
+          id?: string
+          is_active?: boolean
+          kind?: string
+          period?: string
+          reward?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      coin_ledger: {
+        Row: {
+          created_at: string
+          delta: number
+          id: string
+          meta: Json | null
+          reason: string
+          tg_id: number
+        }
+        Insert: {
+          created_at?: string
+          delta: number
+          id?: string
+          meta?: Json | null
+          reason: string
+          tg_id: number
+        }
+        Update: {
+          created_at?: string
+          delta?: number
+          id?: string
+          meta?: Json | null
+          reason?: string
+          tg_id?: number
+        }
+        Relationships: []
+      }
+      game_plays: {
+        Row: {
+          coins_earned: number
+          created_at: string
+          id: string
+          level_reached: number
+          revived: boolean
+          tg_id: number
+        }
+        Insert: {
+          coins_earned: number
+          created_at?: string
+          id?: string
+          level_reached: number
+          revived?: boolean
+          tg_id: number
+        }
+        Update: {
+          coins_earned?: number
+          created_at?: string
+          id?: string
+          level_reached?: number
+          revived?: boolean
+          tg_id?: number
         }
         Relationships: []
       }
@@ -53,6 +297,24 @@ export type Database = {
           kind?: string
           payload?: Json | null
           tg_id?: number
+        }
+        Relationships: []
+      }
+      price_cache: {
+        Row: {
+          symbol: string
+          updated_at: string
+          usd: number
+        }
+        Insert: {
+          symbol: string
+          updated_at?: string
+          usd: number
+        }
+        Update: {
+          symbol?: string
+          updated_at?: string
+          usd?: number
         }
         Relationships: []
       }
@@ -137,6 +399,214 @@ export type Database = {
           verified_refer_count?: number
           wallet_ton?: string | null
           wallet_usdt_aptos?: string | null
+        }
+        Relationships: []
+      }
+      referral_commissions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          referee_tg_id: number
+          referrer_tg_id: number
+          source: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          referee_tg_id: number
+          referrer_tg_id: number
+          source: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          referee_tg_id?: number
+          referrer_tg_id?: number
+          source?: string
+        }
+        Relationships: []
+      }
+      support_tickets: {
+        Row: {
+          created_at: string
+          id: string
+          status: string
+          subject: string
+          tg_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status?: string
+          subject: string
+          tg_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: string
+          subject?: string
+          tg_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      task_completions: {
+        Row: {
+          created_at: string
+          id: string
+          task_id: string
+          tg_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          task_id: string
+          tg_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          task_id?: string
+          tg_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_completions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          reward: number
+          sort_order: number
+          target: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          reward?: number
+          sort_order?: number
+          target?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          reward?: number
+          sort_order?: number
+          target?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      ticket_messages: {
+        Row: {
+          author: string
+          body: string
+          created_at: string
+          id: string
+          ticket_id: string
+        }
+        Insert: {
+          author: string
+          body: string
+          created_at?: string
+          id?: string
+          ticket_id: string
+        }
+        Update: {
+          author?: string
+          body?: string
+          created_at?: string
+          id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawals: {
+        Row: {
+          address: string
+          admin_note: string | null
+          amount_native: number
+          amount_usd: number
+          coins: number
+          created_at: string
+          currency: string
+          fee_pct: number
+          id: string
+          net_amount: number
+          processed_at: string | null
+          status: string
+          tg_id: number
+          tx_id: string | null
+        }
+        Insert: {
+          address: string
+          admin_note?: string | null
+          amount_native: number
+          amount_usd: number
+          coins: number
+          created_at?: string
+          currency: string
+          fee_pct?: number
+          id?: string
+          net_amount: number
+          processed_at?: string | null
+          status?: string
+          tg_id: number
+          tx_id?: string | null
+        }
+        Update: {
+          address?: string
+          admin_note?: string | null
+          amount_native?: number
+          amount_usd?: number
+          coins?: number
+          created_at?: string
+          currency?: string
+          fee_pct?: number
+          id?: string
+          net_amount?: number
+          processed_at?: string | null
+          status?: string
+          tg_id?: number
+          tx_id?: string | null
         }
         Relationships: []
       }

@@ -76,22 +76,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-    ],
-    links: [
       {
-        rel: "stylesheet",
-        href: appCss,
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
       },
+      { name: "theme-color", content: "#0f0820" },
+      { title: "AstroBlitz — Earn Crypto Rewards" },
+      {
+        name: "description",
+        content:
+          "Play fun rocket games, watch ads, invite friends and earn real crypto rewards on AstroBlitz.",
+      },
+      { property: "og:title", content: "AstroBlitz — Earn Crypto Rewards" },
+      { property: "og:description", content: "Play • Earn • Withdraw real crypto." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [{ rel: "stylesheet", href: appCss }],
+    scripts: [{ src: "https://telegram.org/js/telegram-web-app.js", async: true }],
   }),
   shellComponent: RootShell,
   component: RootComponent,

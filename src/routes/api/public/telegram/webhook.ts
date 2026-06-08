@@ -98,16 +98,25 @@ async function handleStart(
     }
   }
 
-  // Logo URL — point at the published asset CDN path on this origin via env or fallback to placeholder
-  const logoUrl = "https://hbbhqtcxtanzilvlhnif.supabase.co/storage/v1/object/public/public-assets/astroblitz-logo.png";
-  // We'll fall back to a hosted public image. For Phase 1, use Telegram-renderable URL:
-  // (We can't read /__l5e assets directly without origin). Use a simple text-only photo via emoji header instead.
+  // Logo URL is configurable from app_settings (admin can later add it via admin panel).
+  let logoUrl: string | null = null;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("app_settings")
+      .select("value")
+      .eq("key", "welcome_photo_url")
+      .maybeSingle();
+    if (data?.value && typeof data.value === "string") logoUrl = data.value as string;
+  } catch {
+    /* ignore */
+  }
 
   const caption =
-    `🚀 <b>Welcome to AstroBlitz!</b>\n\n` +
-    `Play fun rocket games and <b>earn real crypto</b> rewards — TON, USDT (Aptos) and more.\n\n` +
+    `🚀 <b>Welcome to AstroBlitz!</b> 🪐\n\n` +
+    `Play fun rocket games and <b>earn real crypto</b> — TON, USDT (Aptos) and more.\n\n` +
     `🎮 Play games\n📺 Watch ads\n👥 Invite friends\n💰 Withdraw to your wallet\n\n` +
-    `Tap <b>Open AstroBlitz</b> to launch the mini app!`;
+    `Tap <b>Open AstroBlitz</b> to launch the mini app! ✨`;
 
   const reply_markup = {
     inline_keyboard: [
@@ -119,22 +128,19 @@ async function handleStart(
     ],
   };
 
-  // Try sendPhoto first; if logo URL not reachable by Telegram, fall back to text.
-  try {
-    await sendPhoto({
-      chat_id: chatId,
-      photo: logoUrl,
-      caption,
-      parse_mode: "HTML",
-      reply_markup,
-    });
-  } catch {
-    await sendMessage({
-      chat_id: chatId,
-      text: caption,
-      parse_mode: "HTML",
-      reply_markup,
-      disable_web_page_preview: true,
-    });
+  if (logoUrl) {
+    try {
+      await sendPhoto({ chat_id: chatId, photo: logoUrl, caption, parse_mode: "HTML", reply_markup });
+      return;
+    } catch {
+      /* fall through to text */
+    }
   }
+  await sendMessage({
+    chat_id: chatId,
+    text: caption,
+    parse_mode: "HTML",
+    reply_markup,
+    disable_web_page_preview: true,
+  });
 }

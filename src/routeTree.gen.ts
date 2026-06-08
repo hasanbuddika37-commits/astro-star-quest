@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicCronDailyReminderRouteImport } from './routes/api/public/cron/daily-reminder'
+import { Route as ApiPublicCronBroadcastWorkerRouteImport } from './routes/api/public/cron/broadcast-worker'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,30 +25,63 @@ const ApiPublicTelegramWebhookRoute =
     path: '/api/public/telegram/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronDailyReminderRoute =
+  ApiPublicCronDailyReminderRouteImport.update({
+    id: '/api/public/cron/daily-reminder',
+    path: '/api/public/cron/daily-reminder',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCronBroadcastWorkerRoute =
+  ApiPublicCronBroadcastWorkerRouteImport.update({
+    id: '/api/public/cron/broadcast-worker',
+    path: '/api/public/cron/broadcast-worker',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/cron/broadcast-worker': typeof ApiPublicCronBroadcastWorkerRoute
+  '/api/public/cron/daily-reminder': typeof ApiPublicCronDailyReminderRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/cron/broadcast-worker': typeof ApiPublicCronBroadcastWorkerRoute
+  '/api/public/cron/daily-reminder': typeof ApiPublicCronDailyReminderRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/cron/broadcast-worker': typeof ApiPublicCronBroadcastWorkerRoute
+  '/api/public/cron/daily-reminder': typeof ApiPublicCronDailyReminderRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/telegram/webhook'
+  fullPaths:
+    | '/'
+    | '/api/public/cron/broadcast-worker'
+    | '/api/public/cron/daily-reminder'
+    | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/telegram/webhook'
-  id: '__root__' | '/' | '/api/public/telegram/webhook'
+  to:
+    | '/'
+    | '/api/public/cron/broadcast-worker'
+    | '/api/public/cron/daily-reminder'
+    | '/api/public/telegram/webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/public/cron/broadcast-worker'
+    | '/api/public/cron/daily-reminder'
+    | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicCronBroadcastWorkerRoute: typeof ApiPublicCronBroadcastWorkerRoute
+  ApiPublicCronDailyReminderRoute: typeof ApiPublicCronDailyReminderRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
@@ -66,13 +101,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/daily-reminder': {
+      id: '/api/public/cron/daily-reminder'
+      path: '/api/public/cron/daily-reminder'
+      fullPath: '/api/public/cron/daily-reminder'
+      preLoaderRoute: typeof ApiPublicCronDailyReminderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/broadcast-worker': {
+      id: '/api/public/cron/broadcast-worker'
+      path: '/api/public/cron/broadcast-worker'
+      fullPath: '/api/public/cron/broadcast-worker'
+      preLoaderRoute: typeof ApiPublicCronBroadcastWorkerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicCronBroadcastWorkerRoute: ApiPublicCronBroadcastWorkerRoute,
+  ApiPublicCronDailyReminderRoute: ApiPublicCronDailyReminderRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

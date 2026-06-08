@@ -14,7 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      notification_log: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          payload: Json | null
+          tg_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          payload?: Json | null
+          tg_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json | null
+          tg_id?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          ads_watched: number
+          coins: number
+          created_at: string
+          device_fingerprint: string | null
+          first_name: string | null
+          game_level: number
+          id: string
+          is_suspended: boolean
+          language_code: string | null
+          last_ip: string | null
+          last_name: string | null
+          notifications_enabled: boolean
+          onboarded: boolean
+          photo_url: string | null
+          refer_code: string
+          refer_count: number
+          referrer_tg_id: number | null
+          suspend_reason: string | null
+          tg_id: number
+          total_withdraw: number
+          updated_at: string
+          username: string | null
+          verified_refer_count: number
+          wallet_ton: string | null
+          wallet_usdt_aptos: string | null
+        }
+        Insert: {
+          ads_watched?: number
+          coins?: number
+          created_at?: string
+          device_fingerprint?: string | null
+          first_name?: string | null
+          game_level?: number
+          id?: string
+          is_suspended?: boolean
+          language_code?: string | null
+          last_ip?: string | null
+          last_name?: string | null
+          notifications_enabled?: boolean
+          onboarded?: boolean
+          photo_url?: string | null
+          refer_code: string
+          refer_count?: number
+          referrer_tg_id?: number | null
+          suspend_reason?: string | null
+          tg_id: number
+          total_withdraw?: number
+          updated_at?: string
+          username?: string | null
+          verified_refer_count?: number
+          wallet_ton?: string | null
+          wallet_usdt_aptos?: string | null
+        }
+        Update: {
+          ads_watched?: number
+          coins?: number
+          created_at?: string
+          device_fingerprint?: string | null
+          first_name?: string | null
+          game_level?: number
+          id?: string
+          is_suspended?: boolean
+          language_code?: string | null
+          last_ip?: string | null
+          last_name?: string | null
+          notifications_enabled?: boolean
+          onboarded?: boolean
+          photo_url?: string | null
+          refer_code?: string
+          refer_count?: number
+          referrer_tg_id?: number | null
+          suspend_reason?: string | null
+          tg_id?: number
+          total_withdraw?: number
+          updated_at?: string
+          username?: string | null
+          verified_refer_count?: number
+          wallet_ton?: string | null
+          wallet_usdt_aptos?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -615,7 +615,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      credit_coins: {
+        Args: {
+          p_delta: number
+          p_meta?: Json
+          p_reason: string
+          p_tg_id: number
+        }
+        Returns: number
+      }
+      maybe_verify_referral: {
+        Args: { p_referee_tg_id: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

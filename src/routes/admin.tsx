@@ -8,13 +8,18 @@ import {
   adminGetSettings, adminSaveSetting, adminCreateBroadcast,
   adminListTickets, adminReplyTicket,
 } from "@/lib/admin.functions";
+import {
+  adminListAdBlocks, adminSaveAdBlock, adminDeleteAdBlock,
+  adminListUsers, adminGetUserDetail, adminSuspendUser, adminAdjustBalance,
+  adminPostToCommunity, adminAdNetworkCounts,
+} from "@/lib/admin-extra.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "AstroBlitz Admin" }, { name: "robots", content: "noindex" }] }),
   component: AdminPage,
 });
 
-type View = "dashboard" | "withdrawals" | "tasks" | "challenges" | "broadcast" | "tickets" | "settings";
+type View = "dashboard" | "withdrawals" | "users" | "ads" | "tasks" | "challenges" | "broadcast" | "community" | "tickets" | "settings";
 
 function AdminPage() {
   const [token, setToken] = useState<string | null>(() => (typeof localStorage !== "undefined" ? localStorage.getItem("ab_admin_token") : null));
@@ -63,7 +68,7 @@ function Panel({ token, onLogout }: { token: string; onLogout: () => void }) {
           <button onClick={onLogout} className="rounded-lg border border-border px-3 py-1 text-xs">Log out</button>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 text-xs">
-          {(["dashboard", "withdrawals", "tasks", "challenges", "broadcast", "tickets", "settings"] as View[]).map((v) => (
+          {(["dashboard", "withdrawals", "users", "ads", "tasks", "challenges", "broadcast", "community", "tickets", "settings"] as View[]).map((v) => (
             <button key={v} onClick={() => setView(v)} className={`shrink-0 rounded-lg px-3 py-1.5 font-bold capitalize ${view === v ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"}`}>
               {v}
             </button>
@@ -73,9 +78,12 @@ function Panel({ token, onLogout }: { token: string; onLogout: () => void }) {
       <main className="mx-auto max-w-6xl p-4">
         {view === "dashboard" && <Dashboard token={token} />}
         {view === "withdrawals" && <Withdrawals token={token} />}
+        {view === "users" && <Users token={token} />}
+        {view === "ads" && <Ads token={token} />}
         {view === "tasks" && <Tasks token={token} />}
         {view === "challenges" && <Challenges token={token} />}
         {view === "broadcast" && <Broadcast token={token} />}
+        {view === "community" && <CommunityPost token={token} />}
         {view === "tickets" && <Tickets token={token} />}
         {view === "settings" && <Settings token={token} />}
       </main>
@@ -85,15 +93,29 @@ function Panel({ token, onLogout }: { token: string; onLogout: () => void }) {
 
 function Dashboard({ token }: { token: string }) {
   const s = useServerFn(adminStats);
+  const a = useServerFn(adminAdNetworkCounts);
   const [d, setD] = useState<Awaited<ReturnType<typeof adminStats>> | null>(null);
-  useEffect(() => { s({ data: { token } }).then(setD).catch(console.error); }, [token]);
+  const [nc, setNc] = useState<Record<string, number>>({});
+  useEffect(() => {
+    s({ data: { token } }).then(setD).catch(console.error);
+    a({ data: { token } }).then(setNc).catch(console.error);
+  }, [token]);
   if (!d) return <p>Loading…</p>;
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <Card label="Users" value={d.users} />
-      <Card label="Ads watched" value={d.ads} />
-      <Card label="Pending withdraws" value={d.pending_withdrawals} />
-      <Card label="Total paid (USD)" value={`$${d.total_paid_usd.toFixed(2)}`} />
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card label="Users" value={d.users} />
+        <Card label="Ads watched" value={d.ads} />
+        <Card label="Pending withdraws" value={d.pending_withdrawals} />
+        <Card label="Total paid (USD)" value={`$${d.total_paid_usd.toFixed(2)}`} />
+      </div>
+      <div>
+        <h3 className="text-sm font-bold mb-2">Ads by network</h3>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {Object.entries(nc).map(([k, v]) => <Card key={k} label={k} value={v} />)}
+          {Object.keys(nc).length === 0 && <p className="text-xs text-muted-foreground">No ads counted yet.</p>}
+        </div>
+      </div>
     </div>
   );
 }

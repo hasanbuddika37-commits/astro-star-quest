@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_blocks: {
+        Row: {
+          button_lock_seconds: number
+          buttons_count: number
+          cooldown_seconds: number
+          created_at: string
+          id: string
+          is_enabled: boolean
+          label: string
+          logo_url: string | null
+          network: string
+          reward_max: number
+          reward_min: number
+          sdk_extra: Json | null
+          sort_order: number
+          updated_at: string
+          zone_id: string | null
+        }
+        Insert: {
+          button_lock_seconds?: number
+          buttons_count?: number
+          cooldown_seconds?: number
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          label: string
+          logo_url?: string | null
+          network: string
+          reward_max?: number
+          reward_min?: number
+          sdk_extra?: Json | null
+          sort_order?: number
+          updated_at?: string
+          zone_id?: string | null
+        }
+        Update: {
+          button_lock_seconds?: number
+          buttons_count?: number
+          cooldown_seconds?: number
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          label?: string
+          logo_url?: string | null
+          network?: string
+          reward_max?: number
+          reward_min?: number
+          sdk_extra?: Json | null
+          sort_order?: number
+          updated_at?: string
+          zone_id?: string | null
+        }
+        Relationships: []
+      }
+      ad_button_views: {
+        Row: {
+          button_index: number
+          created_at: string
+          id: string
+          network: string
+          reward: number
+          tg_id: number
+        }
+        Insert: {
+          button_index: number
+          created_at?: string
+          id?: string
+          network: string
+          reward?: number
+          tg_id: number
+        }
+        Update: {
+          button_index?: number
+          created_at?: string
+          id?: string
+          network?: string
+          reward?: number
+          tg_id?: number
+        }
+        Relationships: []
+      }
       ad_views: {
         Row: {
           created_at: string
@@ -321,6 +402,7 @@ export type Database = {
       profiles: {
         Row: {
           ads_watched: number
+          best_score: number
           coins: number
           created_at: string
           device_fingerprint: string | null
@@ -334,6 +416,7 @@ export type Database = {
           notifications_enabled: boolean
           onboarded: boolean
           photo_url: string | null
+          refer_bonus_paid: boolean
           refer_code: string
           refer_count: number
           referrer_tg_id: number | null
@@ -348,6 +431,7 @@ export type Database = {
         }
         Insert: {
           ads_watched?: number
+          best_score?: number
           coins?: number
           created_at?: string
           device_fingerprint?: string | null
@@ -361,6 +445,7 @@ export type Database = {
           notifications_enabled?: boolean
           onboarded?: boolean
           photo_url?: string | null
+          refer_bonus_paid?: boolean
           refer_code: string
           refer_count?: number
           referrer_tg_id?: number | null
@@ -375,6 +460,7 @@ export type Database = {
         }
         Update: {
           ads_watched?: number
+          best_score?: number
           coins?: number
           created_at?: string
           device_fingerprint?: string | null
@@ -388,6 +474,7 @@ export type Database = {
           notifications_enabled?: boolean
           onboarded?: boolean
           photo_url?: string | null
+          refer_bonus_paid?: boolean
           refer_code?: string
           refer_count?: number
           referrer_tg_id?: number | null
@@ -487,6 +574,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          channel_username: string | null
           created_at: string
           description: string | null
           id: string
@@ -495,11 +583,14 @@ export type Database = {
           reward: number
           sort_order: number
           target: string | null
+          task_type: string
           title: string
           updated_at: string
           url: string | null
+          verify_via_join: boolean
         }
         Insert: {
+          channel_username?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -508,11 +599,14 @@ export type Database = {
           reward?: number
           sort_order?: number
           target?: string | null
+          task_type?: string
           title: string
           updated_at?: string
           url?: string | null
+          verify_via_join?: boolean
         }
         Update: {
+          channel_username?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -521,9 +615,11 @@ export type Database = {
           reward?: number
           sort_order?: number
           target?: string | null
+          task_type?: string
           title?: string
           updated_at?: string
           url?: string | null
+          verify_via_join?: boolean
         }
         Relationships: []
       }
@@ -558,6 +654,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_actions: {
+        Row: {
+          action: string
+          admin_id: string | null
+          created_at: string
+          delta: number | null
+          id: string
+          meta: Json | null
+          note: string | null
+          tg_id: number
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          created_at?: string
+          delta?: number | null
+          id?: string
+          meta?: Json | null
+          note?: string | null
+          tg_id: number
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          created_at?: string
+          delta?: number | null
+          id?: string
+          meta?: Json | null
+          note?: string | null
+          tg_id?: number
+        }
+        Relationships: []
       }
       withdrawals: {
         Row: {
@@ -615,6 +744,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_balance: {
+        Args: {
+          p_admin_id: string
+          p_delta: number
+          p_note: string
+          p_tg_id: number
+        }
+        Returns: number
+      }
       credit_coins: {
         Args: {
           p_delta: number

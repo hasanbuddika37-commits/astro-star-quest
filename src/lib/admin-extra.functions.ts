@@ -123,6 +123,11 @@ export const adminSuspendUser = createServerFn({ method: "POST" })
       tg_id: data.tg_id, admin_id: s.admin_id, action: data.suspend ? "suspend" : "unsuspend",
       note: data.reason ?? null,
     });
+    await supabaseAdmin.from("user_actions").insert({
+      tg_id: data.tg_id, admin_id: s.admin_id, action: data.suspend ? "suspend" : "unsuspend",
+      note: data.reason ?? null,
+    });
+    return { ok: true };
   });
 
 export const adminAdjustBalance = createServerFn({ method: "POST" })
@@ -132,7 +137,7 @@ export const adminAdjustBalance = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const s = await requireAdmin(data.token);
     const { data: newBal, error } = await supabaseAdmin.rpc("admin_adjust_balance", {
-      p_tg_id: data.tg_id, p_delta: data.delta, p_admin_id: s.admin_id, p_note: data.note ?? null,
+      p_tg_id: data.tg_id, p_delta: data.delta, p_admin_id: s.admin_id as string, p_note: data.note ?? "",
     });
     if (error) throw new Error(error.message);
     return { new_balance: Number(newBal) };

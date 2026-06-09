@@ -14,10 +14,10 @@ export const finishGame = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { profile } = await requireProfile(data.initData);
 
-    const minPer = Number(await getSetting("game_min_per_level", 5));
-    const maxPer = Number(await getSetting("game_max_per_level", 20));
-    const per = Math.floor(minPer + Math.random() * (maxPer - minPer + 1));
-    const reward = per * data.level_reached;
+    const minPer = Number(await getSetting("game_min_per_level", 1));
+    const maxPer = Number(await getSetting("game_max_per_level", 2));
+    // Flat reward per game run (not multiplied by level) — keeps balance fair.
+    const reward = Math.floor(minPer + Math.random() * (maxPer - minPer + 1));
 
     await supabaseAdmin.from("game_plays").insert({
       tg_id: profile.tg_id,

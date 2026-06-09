@@ -221,7 +221,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
         )}
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        Reward: 5–20 coins × level cleared. Crashing? Watch an ad to revive once.
+        Reward: 1–2 coins per run. Crash? Watch an ad to revive and keep going.
       </p>
     </div>
   );

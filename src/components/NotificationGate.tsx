@@ -18,11 +18,11 @@ export default function NotificationGate({ initData, onConfirmed }: Props) {
     try {
       await setNotif({ data: { initData, enabled: true } });
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("success");
-      onConfirmed();
+      // Small delay so user sees the confirmation feel
+      setTimeout(() => onConfirmed(), 300);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed");
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("error");
-    } finally {
       setLoading(false);
     }
   }
@@ -35,16 +35,16 @@ export default function NotificationGate({ initData, onConfirmed }: Props) {
       >
         <div className="flex flex-col items-center text-center gap-4">
           <div
-            className="grid h-20 w-20 place-items-center rounded-2xl text-4xl"
+            className="grid h-20 w-20 place-items-center rounded-full text-4xl ab-float"
             style={{ background: "var(--gradient-primary)" }}
           >
             🔔
           </div>
           <h2 className="text-xl font-extrabold tracking-tight">
-            Enable notifications
+            Enable notifications 🚀
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            We send you reminders, daily rewards, refer updates and withdraw alerts
+            We'll send rewards, daily reminders, refer alerts and withdraw status
             through the AstroBlitz bot. <br />
             <span className="text-foreground/90">
               Tap <b>Allow</b> to continue.

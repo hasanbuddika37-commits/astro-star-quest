@@ -107,6 +107,31 @@ export const initSession = createServerFn({ method: "POST" })
       throw new Error(`Profile upsert failed: ${error?.message ?? "unknown"}`);
     }
 
+    // On brand-new signup with referrer, pay 50 instant coins to inviter and notify them.
+    if (isNew && referrerTgId && !suspended) {
+      try {
+        const { data: settings } = await supabaseAdmin
+          .from("app_settings").select("key,value")
+          .in("key", ["refer_instant_coins", "mini_app_url"]);
+        const map = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
+        const instant = Number(map.refer_instant_coins ?? 50);
+        const miniApp = (map.mini_app_url as string) ?? "https://t.me/AstroBlitzbot/play";
+        await supabaseAdmin.rpc("credit_coins", {
+          p_tg_id: referrerTgId, p_delta: instant,
+          p_reason: "refer_instant", p_meta: { referee: tg.id } as never,
+        });
+        await sendMessage({
+          chat_id: referrerTgId, parse_mode: "HTML",
+          text:
+            `🎉 <b>New friend joined!</b> ✨\n\n` +
+            `👤 ${tg.first_name}${tg.username ? ` (@${tg.username})` : ""}\n` +
+            `💰 You earned <b>+${instant} coins</b> instantly!\n` +
+            `🚀 Earn <b>100 more</b> when they finish all main tasks, 5 game levels & 10 ads.`,
+          reply_markup: { inline_keyboard: [[{ text: "🚀 Open AstroBlitz", url: miniApp }]] },
+        }).catch(() => {});
+      } catch { /* ignore */ }
+    }
+
     // Notify admin on truly new user (best effort)
     if (isNew) {
       try {
@@ -149,7 +174,7 @@ const NotifSchema = z.object({
 export const setNotificationsEnabled = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => NotifSchema.parse(d))
   .handler(async ({ data }) => {
-    const { verifyInitData } = await import("@/lib/telegram.server");
+    const { verifyInitData, sendMessage } = await import("@/lib/telegram.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const verified = verifyInitData(data.initData);
     if (!verified.ok) throw new Error(`Telegram verification failed: ${verified.error}`);
@@ -159,5 +184,23 @@ export const setNotificationsEnabled = createServerFn({ method: "POST" })
       .update({ notifications_enabled: data.enabled, onboarded: true })
       .eq("tg_id", verified.user.id);
     if (error) throw new Error(error.message);
+
+    // Send a confirmation message via the bot (this is what "opens" the bot dialog)
+    if (data.enabled) {
+      try {
+        const { data: setting } = await supabaseAdmin
+          .from("app_settings").select("value").eq("key", "mini_app_url").maybeSingle();
+        const miniApp = (setting?.value as string) ?? "https://t.me/AstroBlitzbot/play";
+        await sendMessage({
+          chat_id: verified.user.id,
+          parse_mode: "HTML",
+          text:
+            `🔔 <b>Notifications enabled!</b> ✨\n\n` +
+            `🎉 You're all set. We'll ping you for daily rewards, refer alerts and withdraw updates.\n\n` +
+            `🚀 Tap below to keep playing!`,
+          reply_markup: { inline_keyboard: [[{ text: "🚀 Open AstroBlitz", url: miniApp }]] },
+        });
+      } catch { /* ignore */ }
+    }
     return { ok: true };
   });

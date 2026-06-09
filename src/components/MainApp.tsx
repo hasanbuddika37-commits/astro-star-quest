@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { initSession } from "@/lib/auth.functions";
+import { showAd } from "@/lib/adsdk";
 import HomeTab from "./tabs/HomeTab";
 import GameTab from "./tabs/GameTab";
 import WatchTab from "./tabs/WatchTab";
@@ -16,6 +17,15 @@ type Props = { initData: string; profile: Profile; onProfile: (p: Profile) => vo
 
 export default function MainApp({ initData, profile, onProfile }: Props) {
   const [tab, setTab] = useState<TabId>("home");
+
+  // Show Adsgram interstitial once on app open (1–3s random delay)
+  useEffect(() => {
+    const delay = 1000 + Math.random() * 2000;
+    const t = setTimeout(() => {
+      showAd("adsgram", { blocks: ["int-34544", "int-34543"] }).catch(() => {});
+    }, delay);
+    return () => clearTimeout(t);
+  }, []);
 
   const refresh = useCallback(
     async (newCoins?: number) => {

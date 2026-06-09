@@ -36,21 +36,21 @@ export const getWithdrawData = createServerFn({ method: "POST" })
     const { profile } = await requireProfile(data.initData);
     const prices = await refreshPrices();
     const rate = Number(await getSetting("coin_to_usd_rate", 0.0001));
-    const minUsd = Number(await getSetting("min_withdraw_usd", 0.5));
+    const minUsd = Number(await getSetting("min_withdraw_usd", 0.05));
+    const maxUsd = Number(await getSetting("max_withdraw_usd", 0.15));
     const feePct = Number(await getSetting("withdraw_fee_pct", 5));
 
     const { data: history } = await supabaseAdmin
-      .from("withdrawals")
-      .select("*")
+      .from("withdrawals").select("*")
       .eq("tg_id", profile.tg_id)
-      .order("created_at", { ascending: false })
-      .limit(30);
+      .order("created_at", { ascending: false }).limit(30);
 
     return {
       coins: Number(profile.coins),
       usd_balance: Number(profile.coins) * rate,
       coin_to_usd_rate: rate,
       min_withdraw_usd: minUsd,
+      max_withdraw_usd: maxUsd,
       fee_pct: feePct,
       prices,
       wallet_ton: profile.wallet_ton ?? "",
@@ -99,10 +99,12 @@ export const requestWithdraw = createServerFn({ method: "POST" })
     if (!address) throw new Error("Set your wallet address first");
 
     const rate = Number(await getSetting("coin_to_usd_rate", 0.0001));
-    const minUsd = Number(await getSetting("min_withdraw_usd", 0.5));
+    const minUsd = Number(await getSetting("min_withdraw_usd", 0.05));
+    const maxUsd = Number(await getSetting("max_withdraw_usd", 0.15));
     const feePct = Number(await getSetting("withdraw_fee_pct", 5));
     const amount_usd = data.coins * rate;
     if (amount_usd < minUsd) throw new Error(`Min withdraw is $${minUsd}`);
+    if (amount_usd > maxUsd) throw new Error(`Max withdraw is $${maxUsd}`);
     const prices = await refreshPrices();
     const px = data.currency === "TON" ? prices.TON : prices.USDT;
     const amount_native = amount_usd / px;
@@ -120,6 +122,29 @@ export const requestWithdraw = createServerFn({ method: "POST" })
       .select("*").single();
     if (error || !w) throw new Error(error?.message ?? "Failed");
 
+    // Get mini app + payment channel for buttons
+    const miniApp = await getSetting<string>("mini_app_url", "https://t.me/AstroBlitzbot/play");
+    const payCh = await getSetting<string>("payment_url", "https://t.me/AstroBlitzpayment");
+
+    // Notify user
+    try {
+      await sendMessage({
+        chat_id: profile.tg_id, parse_mode: "HTML",
+        text:
+          `💸 <b>Withdraw request submitted</b> ✨\n\n` +
+          `💎 Currency: <b>${data.currency}</b>\n` +
+          `🪙 Coins: <b>${Number(data.coins).toLocaleString()}</b>\n` +
+          `💵 USD: <b>$${amount_usd.toFixed(4)}</b>\n` +
+          `📤 Net: <b>${net_amount.toFixed(6)} ${data.currency === "TON" ? "TON" : "USDT"}</b>\n` +
+          `⏳ Status: <b>Pending</b>\n\n` +
+          `We'll notify you when admin approves it! 🚀`,
+        reply_markup: { inline_keyboard: [
+          [{ text: "🚀 Open AstroBlitz", url: miniApp }],
+          [{ text: "💰 Payment Channel", url: payCh }],
+        ]},
+      });
+    } catch { /* ignore */ }
+
     // Notify admin
     try {
       const adminId = await getSetting<number | string | null>("admin_tg_id", null);
@@ -128,12 +153,12 @@ export const requestWithdraw = createServerFn({ method: "POST" })
           chat_id: adminId,
           parse_mode: "HTML",
           text:
-            `💸 <b>Withdraw request</b>\n` +
-            `User: <code>${profile.tg_id}</code> ${profile.username ? "@" + profile.username : ""}\n` +
-            `Coins: <b>${data.coins}</b> ($${amount_usd.toFixed(4)})\n` +
-            `Currency: <b>${data.currency}</b>\n` +
-            `Net: <code>${net_amount.toFixed(6)}</code>\n` +
-            `Addr: <code>${address}</code>`,
+            `💸 <b>New withdraw request</b> 🔔\n\n` +
+            `👤 User: <code>${profile.tg_id}</code> ${profile.username ? "@" + profile.username : ""}\n` +
+            `🪙 Coins: <b>${data.coins}</b> ($${amount_usd.toFixed(4)})\n` +
+            `💎 Currency: <b>${data.currency}</b>\n` +
+            `📤 Net: <code>${net_amount.toFixed(6)}</code>\n` +
+            `📬 Addr: <code>${address}</code>`,
         });
       }
     } catch { /* ignore */ }

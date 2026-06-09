@@ -1,31 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { deriveWebhookSecret, safeEqualString, sendMessage, sendPhoto } from "@/lib/telegram.server";
 
-// Telegram bot webhook — handles /start and other commands.
 export const Route = createFileRoute("/api/public/telegram/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Verify the secret token Telegram sends in headers
         const expected = deriveWebhookSecret();
         const got = request.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
         if (!safeEqualString(got, expected)) {
           return new Response("Unauthorized", { status: 401 });
         }
-
         let update: TelegramUpdate;
         try {
           update = (await request.json()) as TelegramUpdate;
         } catch {
           return Response.json({ ok: true, ignored: "bad-json" });
         }
-
         try {
           await handleUpdate(update);
         } catch (e) {
           console.error("[telegram-webhook] error:", e);
         }
-        // Always 200 so Telegram does not retry storm.
         return Response.json({ ok: true });
       },
     },
@@ -45,14 +40,18 @@ type TelegramUpdate = {
 async function handleUpdate(update: TelegramUpdate) {
   const msg = update.message;
   if (!msg?.text) return;
-
   const text = msg.text.trim();
   const chatId = msg.chat.id;
-
   if (text.startsWith("/start")) {
     await handleStart(chatId, text, msg.from);
-    return;
   }
+}
+
+async function getSetting<T>(key: string, fb: T): Promise<T> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", key).maybeSingle();
+  if (!data) return fb;
+  return data.value as T;
 }
 
 async function handleStart(
@@ -60,27 +59,17 @@ async function handleStart(
   text: string,
   from?: { id: number; first_name?: string; username?: string },
 ) {
-  // capture referral (e.g. /start ref_abc123) — used later when the user opens the mini app
   const parts = text.split(/\s+/);
   const startParam = parts[1] ?? "";
 
-  // Notify admin of new user (best effort)
+  // Notify admin on new user (best effort)
   if (from) {
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: existing } = await supabaseAdmin
-        .from("profiles")
-        .select("tg_id")
-        .eq("tg_id", from.id)
-        .maybeSingle();
-
+        .from("profiles").select("tg_id").eq("tg_id", from.id).maybeSingle();
       if (!existing) {
-        const { data: adminRow } = await supabaseAdmin
-          .from("app_settings")
-          .select("value")
-          .eq("key", "admin_tg_id")
-          .maybeSingle();
-        const adminId = adminRow?.value as number | string | undefined;
+        const adminId = await getSetting<number | string | null>("admin_tg_id", null);
         if (adminId) {
           await sendMessage({
             chat_id: adminId,
@@ -98,42 +87,40 @@ async function handleStart(
     }
   }
 
-  // Logo URL is configurable from app_settings (admin can later add it via admin panel).
-  let logoUrl: string | null = null;
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
-      .from("app_settings")
-      .select("value")
-      .eq("key", "welcome_photo_url")
-      .maybeSingle();
-    if (data?.value && typeof data.value === "string") logoUrl = data.value as string;
-  } catch {
-    /* ignore */
-  }
+  const logoUrl = await getSetting<string | null>("welcome_photo_url", null);
+  const miniApp = (await getSetting<string>("mini_app_url", "https://t.me/AstroBlitzbot/play"));
+  const community = (await getSetting<string>("community_url", "https://t.me/AstroBlitzcommunity"));
+  const payment = (await getSetting<string>("payment_url", "https://t.me/AstroBlitzpayment"));
+  const botUsername = (await getSetting<string>("bot_username", "AstroBlitzbot"));
+  const refSuffix = startParam ? `?startapp=${encodeURIComponent(startParam)}` : "";
 
+  const name = from?.first_name ? from.first_name : "Astronaut";
   const caption =
-    `🚀 <b>Welcome to AstroBlitz!</b> 🪐\n\n` +
-    `Play fun rocket games and <b>earn real crypto</b> — TON, USDT (Aptos) and more.\n\n` +
-    `🎮 Play games\n📺 Watch ads\n👥 Invite friends\n💰 Withdraw to your wallet\n\n` +
-    `Tap <b>Open AstroBlitz</b> to launch the mini app! ✨`;
+    `🚀✨ <b>Welcome ${name}!</b> 🪐\n\n` +
+    `🎮 Welcome to <b>AstroBlitz</b> — the rocket-runner Telegram mini-app where you <b>play and earn real crypto</b> 💎\n\n` +
+    `🌟 <b>What you can do:</b>\n` +
+    `🚀 Play fun rocket games\n` +
+    `📺 Watch ads & earn coins\n` +
+    `👥 Invite friends — get 150 coins each\n` +
+    `💰 Withdraw to TON / USDT (Aptos)\n\n` +
+    `🔥 Tap <b>Open AstroBlitz</b> to launch! 👇`;
 
+  // Inline keyboard — use url for t.me/<bot>/<short_app> so it opens the mini app
   const reply_markup = {
     inline_keyboard: [
-      [{ text: "🚀 Open AstroBlitz", web_app: { url: "https://t.me/AstroBlitzbot/play" } }],
-      [
-        { text: "💬 Community", url: "https://t.me/AstroBlitzcommunity" },
-        { text: "💸 Payments", url: "https://t.me/AstroBlitzpayment" },
-      ],
+      [{ text: "🚀 Open AstroBlitz", url: `https://t.me/${botUsername}/play${refSuffix}` }],
+      [{ text: "💬 Community", url: community }],
+      [{ text: "💸 Payments", url: payment }],
     ],
   };
 
+  // Try with photo first
   if (logoUrl) {
     try {
       await sendPhoto({ chat_id: chatId, photo: logoUrl, caption, parse_mode: "HTML", reply_markup });
       return;
-    } catch {
-      /* fall through to text */
+    } catch (e) {
+      console.error("[telegram-webhook] sendPhoto failed, falling back to text:", e);
     }
   }
   await sendMessage({

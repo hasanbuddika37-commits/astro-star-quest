@@ -99,7 +99,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e701ef31-f104-4f11-a5a1-b4905cd12d80/id-preview-8b22fa49--1441f38c-c668-45e2-b6bb-6c92dfd1ac3e.lovable.app-1780920684590.png" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
-    scripts: [{ src: "https://telegram.org/js/telegram-web-app.js", async: true }],
+    scripts: [
+      { src: "https://telegram.org/js/telegram-web-app.js", async: true },
+      { src: "https://sad.adsgram.ai/js/sad.min.js", async: true },
+      { src: "https://libtl.com/sdk.js", async: true, "data-zone": "11115938", "data-sdk": "show_11115938" } as never,
+      { src: "https://ad.gigapub.tech/script?id=6929", async: true },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,

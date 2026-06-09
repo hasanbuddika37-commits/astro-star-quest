@@ -39,12 +39,18 @@ export default function SplashScreen({ onDone }: Props) {
       </div>
 
       <div className="relative flex flex-col items-center gap-6 ab-rocket-launch">
-        <div className="relative">
+        <div
+          className="relative grid h-56 w-56 place-items-center rounded-full overflow-hidden border-4"
+          style={{
+            borderColor: "color-mix(in oklab, var(--primary) 50%, transparent)",
+            boxShadow: "0 0 60px rgba(168,85,247,0.6), inset 0 0 40px rgba(168,85,247,0.25)",
+          }}
+        >
           <span className="ab-pulse-ring" />
           <img
             src={ASTROBLITZ_LOGO_URL}
             alt="AstroBlitz"
-            className="ab-float relative h-56 w-56 object-contain drop-shadow-[0_0_40px_rgba(168,85,247,0.55)]"
+            className="ab-float relative h-full w-full object-cover"
             draggable={false}
           />
         </div>

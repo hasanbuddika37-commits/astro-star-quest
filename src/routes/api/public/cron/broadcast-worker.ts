@@ -22,10 +22,13 @@ async function runBroadcasts() {
       ? { inline_keyboard: [[{ text: b.button_text, url: b.button_url }]] }
       : undefined;
 
-    // Community channel
+    // Community channel — prefer explicit chat_id setting, fallback to url
     try {
-      const community = (await getSetting<string>("community_url", "")) || "";
-      const chat = community.replace(/^https?:\/\/t\.me\//, "@");
+      let chat = (await getSetting<string>("community_chat_id", "")) || "";
+      if (!chat) {
+        const community = (await getSetting<string>("community_url", "")) || "";
+        chat = community.replace(/^https?:\/\/t\.me\//, "@");
+      }
       if (chat) {
         if (b.image_url) {
           await sendPhoto({ chat_id: chat, photo: b.image_url, caption: b.message, parse_mode: "HTML", reply_markup: keyboard });
@@ -33,7 +36,9 @@ async function runBroadcasts() {
           await sendMessage({ chat_id: chat, text: b.message, parse_mode: "HTML", reply_markup: keyboard });
         }
       }
-    } catch { /* ignore community failure */ }
+    } catch (e) {
+      console.error("[broadcast] community post failed:", e);
+    }
 
     // All users
     let from = 0; const page = 500; let sent = 0; let failed = 0;

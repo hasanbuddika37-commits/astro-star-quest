@@ -8,7 +8,7 @@ export async function requireTgUser(initData: string): Promise<TelegramUser> {
   return v.user;
 }
 
-export async function requireProfile(initData: string) {
+export async function requireProfile(initData: string, opts?: { allowSuspended?: boolean }) {
   const user = await requireTgUser(initData);
   const { data, error } = await supabaseAdmin
     .from("profiles")
@@ -17,7 +17,7 @@ export async function requireProfile(initData: string) {
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Profile not found — open the app from Telegram first.");
-  if (data.is_suspended) throw new Error("Account suspended");
+  if (data.is_suspended && !opts?.allowSuspended) throw new Error("Account suspended");
   return { user, profile: data };
 }
 

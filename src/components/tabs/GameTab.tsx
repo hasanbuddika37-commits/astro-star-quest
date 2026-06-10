@@ -207,8 +207,8 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
               )}
               <div className="mt-4 flex flex-col gap-2">
                 {status === "dead" && reward === null && !reviveUsed && (
-                  <button onClick={() => onGameOver("revive")} className="h-11 rounded-xl text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-blitz)" }}>
-                    📺 Watch ad to revive
+                  <button onClick={() => onGameOver("revive")} disabled={reviveBusy} className="h-11 rounded-xl text-sm font-bold text-primary-foreground disabled:opacity-60" style={{ background: "var(--gradient-blitz)" }}>
+                    {reviveBusy ? "Loading ad…" : "📺 Watch ad to revive"}
                   </button>
                 )}
                 {status === "dead" && reward === null && (

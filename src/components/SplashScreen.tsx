@@ -40,7 +40,7 @@ export default function SplashScreen({ onDone }: Props) {
 
       <div className="relative flex flex-col items-center gap-6 ab-rocket-launch">
         <div
-          className="relative grid h-56 w-56 place-items-center rounded-full overflow-hidden border-4"
+          className="relative grid aspect-square h-56 w-56 place-items-center rounded-full overflow-hidden border-4"
           style={{
             borderColor: "color-mix(in oklab, var(--primary) 50%, transparent)",
             boxShadow: "0 0 60px rgba(168,85,247,0.6), inset 0 0 40px rgba(168,85,247,0.25)",
@@ -50,7 +50,7 @@ export default function SplashScreen({ onDone }: Props) {
           <img
             src={ASTROBLITZ_LOGO_URL}
             alt="AstroBlitz"
-            className="ab-float relative h-full w-full object-cover"
+            className="ab-float relative h-full w-full rounded-full object-cover"
             draggable={false}
           />
         </div>

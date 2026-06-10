@@ -147,15 +147,23 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
     if (action === "claim") {
       await settle(score, false);
     } else {
+      if (reviveBusy) return;
+      setReviveBusy(true);
       try {
-        await watchAd({ data: { initData, slot: "revive" } });
+        // Ad MUST play. If it fails, do NOT revive.
+        const net = await pickAd({ data: { initData } });
+        if (!net?.network) throw new Error("No ad network available");
+        await showAd(net.network, net.sdk_extra as never, "reward");
+        await watchAd({ data: { initData, slot: "revive", network: net.network } });
         setReviveUsed(true);
-        // continue from current state
         stateRef.current.alive = true;
         stateRef.current.v = FLAP;
         setStatus("playing");
       } catch (e) {
         console.error(e);
+        window.Telegram?.WebApp?.showAlert?.("Ad failed — please try again.");
+      } finally {
+        setReviveBusy(false);
       }
     }
   }

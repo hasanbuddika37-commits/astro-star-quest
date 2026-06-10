@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { finishGame } from "@/lib/game.functions";
-import { claimAd } from "@/lib/ads.functions";
+import { claimAd, getRandomAdNetwork } from "@/lib/ads.functions";
+import { showAd } from "@/lib/adsdk";
 import type { Profile } from "../MainApp";
 
 type Props = { initData: string; profile: Profile; onCoins: (c: number) => void };
@@ -21,7 +22,9 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
   const [reward, setReward] = useState<number | null>(null);
   const finish = useServerFn(finishGame);
   const watchAd = useServerFn(claimAd);
+  const pickAd = useServerFn(getRandomAdNetwork);
   const [reviveUsed, setReviveUsed] = useState(false);
+  const [reviveBusy, setReviveBusy] = useState(false);
 
   const stateRef = useRef({
     y: 0, v: 0, obstacles: [] as Obstacle[], frame: 0, score: 0, alive: false,
@@ -144,15 +147,23 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
     if (action === "claim") {
       await settle(score, false);
     } else {
+      if (reviveBusy) return;
+      setReviveBusy(true);
       try {
-        await watchAd({ data: { initData, slot: "revive" } });
+        // Ad MUST play. If it fails, do NOT revive.
+        const net = await pickAd({ data: { initData } });
+        if (!net?.network) throw new Error("No ad network available");
+        await showAd(net.network, net.sdk_extra as never, "reward");
+        await watchAd({ data: { initData, slot: "revive", network: net.network } });
         setReviveUsed(true);
-        // continue from current state
         stateRef.current.alive = true;
         stateRef.current.v = FLAP;
         setStatus("playing");
       } catch (e) {
         console.error(e);
+        alert("Ad failed — please try again.");
+      } finally {
+        setReviveBusy(false);
       }
     }
   }
@@ -196,8 +207,8 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
               )}
               <div className="mt-4 flex flex-col gap-2">
                 {status === "dead" && reward === null && !reviveUsed && (
-                  <button onClick={() => onGameOver("revive")} className="h-11 rounded-xl text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-blitz)" }}>
-                    📺 Watch ad to revive
+                  <button onClick={() => onGameOver("revive")} disabled={reviveBusy} className="h-11 rounded-xl text-sm font-bold text-primary-foreground disabled:opacity-60" style={{ background: "var(--gradient-blitz)" }}>
+                    {reviveBusy ? "Loading ad…" : "📺 Watch ad to revive"}
                   </button>
                 )}
                 {status === "dead" && reward === null && (

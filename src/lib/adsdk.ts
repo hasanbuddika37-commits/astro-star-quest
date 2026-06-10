@@ -1,6 +1,4 @@
-// Client-side ad-network SDK glue. Loads each provider's script lazily and
-// exposes a single `showAd(network)` helper that resolves on completion.
-
+// Client-side ad-network SDK glue. Strict: throws on SDK failure — never auto-rewards.
 type SdkExtra = Record<string, unknown> | null | undefined;
 
 const loaded = new Set<string>();
@@ -11,10 +9,7 @@ function loadScript(src: string): Promise<void> {
     const s = document.createElement("script");
     s.src = src;
     s.async = true;
-    s.onload = () => {
-      loaded.add(src);
-      resolve();
-    };
+    s.onload = () => { loaded.add(src); resolve(); };
     s.onerror = () => reject(new Error(`Failed to load ${src}`));
     document.head.appendChild(s);
   });
@@ -22,15 +17,8 @@ function loadScript(src: string): Promise<void> {
 
 declare global {
   interface Window {
-    // Adsgram
-    Adsgram?: {
-      init: (opts: { blockId: string }) => {
-        show: () => Promise<unknown>;
-      };
-    };
-    // Monetag injects dynamic show_<id> function names
+    Adsgram?: { init: (opts: { blockId: string }) => { show: () => Promise<unknown> } };
     show_11115938?: () => Promise<void>;
-    // Gigapub
     showGiga?: () => Promise<void>;
   }
 }
@@ -54,43 +42,46 @@ async function showMonetag(extra: SdkExtra): Promise<void> {
 async function showGigapub(extra: SdkExtra): Promise<void> {
   const src = (extra?.src as string) || "https://ad.gigapub.tech/script?id=6929";
   await loadScript(src);
+  // GigaPub injects showGiga asynchronously after script load; poll briefly.
+  for (let i = 0; i < 25 && typeof window.showGiga !== "function"; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
   if (typeof window.showGiga !== "function") throw new Error("GigaPub SDK not ready");
   await window.showGiga();
 }
 
 /**
- * Show an ad from the given network. Returns when the user has viewed the ad
- * (or after the placeholder timer for unknown / disabled networks).
+ * Show an ad. Resolves only on confirmed completion. Throws on failure or
+ * unknown network. Callers MUST gate reward credit on this resolving.
+ *
+ * `mode`:
+ *   - "interstitial": auto / background ad (Adsgram int-* block).
+ *   - "reward": user-initiated reward ad (Adsgram reward block, no prefix).
  */
 export async function showAd(
   network: string,
   extra?: SdkExtra,
-  options?: { adsgramBlocks?: string[] },
+  mode: "interstitial" | "reward" = "reward",
 ): Promise<void> {
-  try {
-    if (network === "adsgram") {
-      const blocks = options?.adsgramBlocks || (Array.isArray(extra?.blocks) ? (extra!.blocks as string[]) : ["int-34544", "int-34543"]);
-      const pick = blocks[Math.floor(Math.random() * blocks.length)];
-      await showAdsgram(pick);
-      return;
+  if (network === "adsgram") {
+    let blockId: string | undefined;
+    if (mode === "reward") {
+      blockId = (extra?.reward_block as string) || "34543";
+    } else {
+      const blocks = Array.isArray(extra?.blocks) ? (extra!.blocks as string[]) : ["int-34544"];
+      blockId = blocks[Math.floor(Math.random() * blocks.length)];
     }
-    if (network === "monetag") {
-      await showMonetag(extra);
-      return;
-    }
-    if (network === "gigapub") {
-      await showGigapub(extra);
-      return;
-    }
-  } catch (e) {
-    console.warn(`[adsdk] ${network} failed, using placeholder:`, e);
+    await showAdsgram(blockId);
+    return;
   }
-  // Fallback placeholder — 3 second delay
-  await new Promise((r) => setTimeout(r, 3000));
+  if (network === "monetag") { await showMonetag(extra); return; }
+  if (network === "gigapub") { await showGigapub(extra); return; }
+  throw new Error(`Unknown ad network: ${network}`);
 }
 
-/** Pick a random enabled network for "claim reward" ad triggers. */
-export function pickRandomNetwork(networks: { network: string; sdk_extra?: SdkExtra }[]): { network: string; sdk_extra?: SdkExtra } | null {
+export function pickRandomNetwork(
+  networks: { network: string; sdk_extra?: SdkExtra }[],
+): { network: string; sdk_extra?: SdkExtra } | null {
   if (!networks || networks.length === 0) return null;
   return networks[Math.floor(Math.random() * networks.length)];
 }

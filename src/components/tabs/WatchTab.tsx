@@ -60,7 +60,8 @@ export default function WatchTab({ initData, onCoins }: { initData: string; onCo
     setBusy({ net: card.network, idx: btn.index });
     setMsg(null);
     try {
-      await showAd(card.network, card.sdk_extra);
+      // Ad MUST play (strict). If it throws, do NOT claim.
+      await showAd(card.network, card.sdk_extra, "reward");
       const r = await claim({ data: { initData, network: card.network, button_index: btn.index } });
       onCoins(r.new_balance);
       setMsg(`+${r.reward} coins 🎉`);
@@ -68,7 +69,7 @@ export default function WatchTab({ initData, onCoins }: { initData: string; onCo
       setLock({ net: card.network, until: Date.now() + card.button_lock_seconds * 1000 });
       await refresh();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Failed");
+      setMsg(e instanceof Error ? `Ad failed: ${e.message}` : "Ad failed");
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("error");
     } finally {
       setBusy(null);

@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { initSession } from "@/lib/auth.functions";
 import { showAd } from "@/lib/adsdk";
 import HomeTab from "./tabs/HomeTab";
@@ -18,13 +17,21 @@ type Props = { initData: string; profile: Profile; onProfile: (p: Profile) => vo
 export default function MainApp({ initData, profile, onProfile }: Props) {
   const [tab, setTab] = useState<TabId>("home");
 
-  // Show Adsgram interstitial once on app open (1–3s random delay)
+  // First interstitial 1–3s after open, then every 60–70s while open.
   useEffect(() => {
-    const delay = 1000 + Math.random() * 2000;
-    const t = setTimeout(() => {
-      showAd("adsgram", { blocks: ["int-34544", "int-34543"] }).catch(() => {});
-    }, delay);
-    return () => clearTimeout(t);
+    let cancelled = false;
+    const showOnce = () => {
+      showAd("adsgram", { blocks: ["int-34544"] }, "interstitial").catch(() => {});
+    };
+    const firstT = setTimeout(showOnce, 1000 + Math.random() * 2000);
+    let loopT: ReturnType<typeof setTimeout>;
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const delay = (60 + Math.random() * 10) * 1000;
+      loopT = setTimeout(() => { showOnce(); scheduleNext(); }, delay);
+    };
+    scheduleNext();
+    return () => { cancelled = true; clearTimeout(firstT); clearTimeout(loopT!); };
   }, []);
 
   const refresh = useCallback(

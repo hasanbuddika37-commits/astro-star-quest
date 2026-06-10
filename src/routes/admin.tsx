@@ -437,20 +437,20 @@ function Users({ token }: { token: string }) {
       </div>
       <div>
         {!sel && <p className="text-xs text-muted-foreground">Select a user.</p>}
-        {sel?.profile && (
+        {sel?.profile && (() => { const sp = sel.profile!; return (
           <div className="rounded-2xl border border-border bg-card/70 p-3 text-xs space-y-2">
             <div className="flex justify-between">
               <div>
-                <p className="font-bold text-sm">{sel.profile.first_name} @{sel.profile.username}</p>
-                <p className="text-muted-foreground">🆔 {sel.profile.tg_id}</p>
+                <p className="font-bold text-sm">{sp.first_name} @{sp.username}</p>
+                <p className="text-muted-foreground">🆔 {sp.tg_id}</p>
               </div>
-              <span className="text-gold font-bold">{Number(sel.profile.coins).toLocaleString()} coins</span>
+              <span className="text-gold font-bold">{Number(sp.coins).toLocaleString()} coins</span>
             </div>
-            <p className="text-muted-foreground">Expected from ledger: <b>{Number(sel.expected_balance).toLocaleString()}</b> {Math.abs(Number(sel.profile.coins) - sel.expected_balance) > 0.01 && <span className="text-destructive">⚠ mismatch</span>}</p>
+            <p className="text-muted-foreground">Expected from ledger: <b>{Number(sel.expected_balance).toLocaleString()}</b> {Math.abs(Number(sp.coins) - sel.expected_balance) > 0.01 && <span className="text-destructive">⚠ mismatch</span>}</p>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => doAdjust(sel.profile.tg_id)} className="rounded-lg bg-primary px-2 py-1 text-primary-foreground">± Balance</button>
-              <button onClick={() => toggleSuspend(sel.profile.tg_id, !sel.profile.is_suspended)} className={`rounded-lg px-2 py-1 text-white ${sel.profile.is_suspended ? "bg-green-600" : "bg-destructive"}`}>
-                {sel.profile.is_suspended ? "Un-suspend" : "Suspend"}
+              <button onClick={() => doAdjust(sp.tg_id)} className="rounded-lg bg-primary px-2 py-1 text-primary-foreground">± Balance</button>
+              <button onClick={() => toggleSuspend(sp.tg_id, !sp.is_suspended)} className={`rounded-lg px-2 py-1 text-white ${sp.is_suspended ? "bg-green-600" : "bg-destructive"}`}>
+                {sp.is_suspended ? "Un-suspend" : "Suspend"}
               </button>
             </div>
             <div>
@@ -468,7 +468,7 @@ function Users({ token }: { token: string }) {
               ))}
             </div>
           </div>
-        )}
+        ); })()}
       </div>
     </div>
   );

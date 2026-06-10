@@ -76,7 +76,7 @@ export const adminApproveWithdrawal = createServerFn({ method: "POST" })
     const miniApp = (sm.mini_app_url as string) ?? "";
     const txUrl = w.currency === "TON"
       ? `https://tonscan.org/tx/${data.tx_id}`
-      : `https://explorer.aptoslabs.com/txn/${data.tx_id}`;
+      : `https://bscscan.com/tx/${data.tx_id}`;
     try {
       await sendMessage({
         chat_id: w.tg_id, parse_mode: "HTML",

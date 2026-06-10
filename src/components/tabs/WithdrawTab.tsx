@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getWithdrawData, saveWallet, requestWithdraw } from "@/lib/withdraw.functions";
 import { createTicket, listTickets } from "@/lib/support.functions";
@@ -16,7 +16,7 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
   const mineTickets = useServerFn(listTickets);
   const pickAd = useServerFn(getRandomAdNetwork);
   const [d, setD] = useState<Data | null>(null);
-  const [currency, setCurrency] = useState<"TON" | "USDT_APTOS">("TON");
+  const [currency, setCurrency] = useState<"TON" | "USDT_BEP20">("TON");
   const [amount, setAmount] = useState("");
   const [walletTon, setWalletTon] = useState("");
   const [walletUsdt, setWalletUsdt] = useState("");
@@ -27,17 +27,18 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
   const [supportBody, setSupportBody] = useState("");
   const [supportSent, setSupportSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
 
   async function refresh() {
     const r = await get({ data: { initData } });
-    setD(r); setWalletTon(r.wallet_ton); setWalletUsdt(r.wallet_usdt_aptos);
+    setD(r); setWalletTon(r.wallet_ton); setWalletUsdt(r.wallet_usdt_bep20);
   }
-  useEffect(() => { refresh().catch((e) => setErr(String(e))); }, []);
+  useEffect(() => { mounted.current = true; refresh().catch((e) => setErr(String(e))); return () => { mounted.current = false; }; }, []);
 
   async function onSaveWallet() {
     setMsg(null); setErr(null);
     try {
-      await save({ data: { initData, wallet_ton: walletTon, wallet_usdt_aptos: walletUsdt } });
+      await save({ data: { initData, wallet_ton: walletTon, wallet_usdt_bep20: walletUsdt } });
       setMsg("✅ Wallets saved");
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("success");
     } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
@@ -49,11 +50,13 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
     if (!coins) { setErr("Enter amount in coins"); return; }
     setBusy(true);
     try {
-      // Show a random network ad before submit
+      // Ad MUST play (strict). If it fails, do NOT submit.
       try {
         const net = await pickAd({ data: { initData } });
-        if (net?.network) await showAd(net.network, net.sdk_extra as never);
-      } catch { /* ignore */ }
+        if (net?.network) await showAd(net.network, net.sdk_extra as never, "reward");
+      } catch (e) {
+        setErr("Ad failed — please retry."); setBusy(false); return;
+      }
       const w = await submit({ data: { initData, currency, coins } });
       setMsg(`✅ Submitted — ${Number(w.net_amount).toFixed(6)} ${currency === "TON" ? "TON" : "USDT"}`);
       setAmount("");
@@ -107,16 +110,16 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
         <div className="mt-4 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => setCurrency("TON")} className={`rounded-xl border border-border py-3 text-sm font-bold ${currency === "TON" ? "text-primary-foreground" : "text-muted-foreground"}`} style={currency === "TON" ? { background: "var(--gradient-primary)" } : undefined}>💎 TON</button>
-            <button onClick={() => setCurrency("USDT_APTOS")} className={`rounded-xl border border-border py-3 text-sm font-bold ${currency === "USDT_APTOS" ? "text-primary-foreground" : "text-muted-foreground"}`} style={currency === "USDT_APTOS" ? { background: "var(--gradient-primary)" } : undefined}>💵 USDT (Aptos)</button>
+            <button onClick={() => setCurrency("USDT_BEP20")} className={`rounded-xl border border-border py-3 text-sm font-bold ${currency === "USDT_BEP20" ? "text-primary-foreground" : "text-muted-foreground"}`} style={currency === "USDT_BEP20" ? { background: "var(--gradient-primary)" } : undefined}>💵 USDT (BEP20)</button>
           </div>
 
           <div className="rounded-2xl border border-border bg-card/70 p-3">
-            <label className="text-xs text-muted-foreground">{currency === "TON" ? "TON wallet address" : "USDT Aptos wallet address"}</label>
+            <label className="text-xs text-muted-foreground">{currency === "TON" ? "TON wallet address" : "USDT BEP20 (BSC) wallet address"}</label>
             <input
               value={currency === "TON" ? walletTon : walletUsdt}
               onChange={(e) => (currency === "TON" ? setWalletTon(e.target.value) : setWalletUsdt(e.target.value))}
               className="mt-1 w-full rounded-xl bg-background px-3 py-2 text-sm outline-none border border-border"
-              placeholder="UQ… or 0x…"
+              placeholder={currency === "TON" ? "UQ…" : "0x…"}
             />
             <button onClick={onSaveWallet} className="mt-2 h-9 w-full rounded-xl text-xs font-bold text-primary-foreground" style={{ background: "var(--gradient-blitz)" }}>
               💾 Save wallets
@@ -137,7 +140,7 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
             {underMin && <p className="mt-1 text-xs text-destructive">Below ${d.min_withdraw_usd} minimum</p>}
             {overMax && <p className="mt-1 text-xs text-destructive">Above ${d.max_withdraw_usd} maximum</p>}
             <button onClick={onWithdraw} disabled={busy || !amount || overLimit || underMin || overMax} className="mt-3 h-11 w-full rounded-xl text-sm font-bold text-primary-foreground disabled:opacity-50" style={{ background: "var(--gradient-blitz)" }}>
-              {busy ? "Submitting…" : "💸 Request withdraw"}
+              {busy ? "Submitting…" : "💸 Watch ad & request"}
             </button>
           </div>
 

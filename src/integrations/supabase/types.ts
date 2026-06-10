@@ -427,7 +427,7 @@ export type Database = {
           username: string | null
           verified_refer_count: number
           wallet_ton: string | null
-          wallet_usdt_aptos: string | null
+          wallet_usdt_bep20: string | null
         }
         Insert: {
           ads_watched?: number
@@ -456,7 +456,7 @@ export type Database = {
           username?: string | null
           verified_refer_count?: number
           wallet_ton?: string | null
-          wallet_usdt_aptos?: string | null
+          wallet_usdt_bep20?: string | null
         }
         Update: {
           ads_watched?: number
@@ -485,7 +485,7 @@ export type Database = {
           username?: string | null
           verified_refer_count?: number
           wallet_ton?: string | null
-          wallet_usdt_aptos?: string | null
+          wallet_usdt_bep20?: string | null
         }
         Relationships: []
       }

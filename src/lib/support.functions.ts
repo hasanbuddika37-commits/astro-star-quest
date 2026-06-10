@@ -6,7 +6,7 @@ export const listTickets = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { requireProfile } = await import("./tg-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { profile } = await requireProfile(data.initData);
+    const { profile } = await requireProfile(data.initData, { allowSuspended: true });
     const { data: list } = await supabaseAdmin
       .from("support_tickets").select("*")
       .eq("tg_id", profile.tg_id).order("created_at", { ascending: false });

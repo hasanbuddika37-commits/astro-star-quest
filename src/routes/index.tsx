@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import SplashScreen from "@/components/SplashScreen";
 import NotificationGate from "@/components/NotificationGate";
 import MainApp from "@/components/MainApp";
+import SuspendedScreen from "@/components/SuspendedScreen";
 import { getDeviceFingerprint, useTelegram } from "@/lib/telegram-webapp";
 import { initSession } from "@/lib/auth.functions";
 
@@ -38,12 +39,12 @@ function AppShell() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [suspendReason, setSuspendReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready) return;
     const initData = tg?.initData ?? "";
     if (!initData) {
-      // Outside Telegram — preview/dev mode
       setLoading(false);
       setError("Please open this mini app from inside Telegram.");
       return;
@@ -51,10 +52,9 @@ function AppShell() {
     setLoading(true);
     init({ data: { initData, device_fingerprint: getDeviceFingerprint() } })
       .then((r) => {
-        if (r.suspended) {
-          setError(
-            "🚫 Your account is suspended (duplicate device/IP detected). Contact support if you believe this is a mistake.",
-          );
+        if (r.suspended || r.profile.is_suspended) {
+          setSuspendReason(r.profile.suspend_reason ?? "Your account is suspended.");
+          setProfile(r.profile);
           return;
         }
         setProfile(r.profile);
@@ -74,15 +74,21 @@ function AppShell() {
     );
   }
 
-  if (error || !profile) {
+  if (error) {
     return (
       <div className="min-h-dvh grid place-items-center px-6 text-center">
         <div className="max-w-sm rounded-3xl border border-border bg-card/80 p-6 backdrop-blur">
           <div className="text-5xl mb-3">🛰️</div>
-          <p className="text-sm text-muted-foreground">{error ?? "No profile"}</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
     );
+  }
+
+  if (!profile) return null;
+
+  if (suspendReason) {
+    return <SuspendedScreen initData={tg!.initData} reason={suspendReason} />;
   }
 
   if (!profile.onboarded) {

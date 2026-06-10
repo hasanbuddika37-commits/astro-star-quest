@@ -41,7 +41,7 @@ export const createTicket = createServerFn({ method: "POST" })
     const { requireProfile, getSetting } = await import("./tg-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { sendMessage } = await import("./telegram.server");
-    const { profile } = await requireProfile(data.initData);
+    const { profile } = await requireProfile(data.initData, { allowSuspended: true });
     const { data: t, error } = await supabaseAdmin
       .from("support_tickets").insert({ tg_id: profile.tg_id, subject: data.subject })
       .select("*").single();

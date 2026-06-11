@@ -172,7 +172,7 @@ export const requestWithdraw = createServerFn({ method: "POST" })
     if (error || !w) throw new Error(error?.message ?? "Failed");
 
     const miniApp = await getSetting<string>("mini_app_url", "https://t.me/AstroBlitzbot/play");
-    const payCh = await getSetting<string>("payment_channel_url", "https://t.me/AstroBlitzPayments");
+    const payCh = await getSetting<string>("payment_channel_url", "https://t.me/AstroBlitzpayment");
 
     try {
       await sendMessage({
@@ -182,6 +182,7 @@ export const requestWithdraw = createServerFn({ method: "POST" })
           `💎 Currency: <b>${data.currency === "TON" ? "TON" : "USDT (BEP20)"}</b>\n` +
           `🪙 Coins: <b>${Number(data.coins).toLocaleString()}</b>\n` +
           `💵 USD: <b>$${amount_usd.toFixed(4)}</b>\n` +
+          `🧾 Fee: <b>$${fee_usd.toFixed(4)}</b> ($${feeFlatUsd} + ${feePct}%)\n` +
           `📤 Net: <b>${net_amount.toFixed(6)} ${data.currency === "TON" ? "TON" : "USDT"}</b>\n` +
           `⏳ Status: <b>Pending</b>\n\n` +
           `We'll notify you when admin approves it! 🎉`,
@@ -190,11 +191,12 @@ export const requestWithdraw = createServerFn({ method: "POST" })
           [{ text: "💰 Payment Channel", url: payCh }],
         ]},
       });
-    } catch { /* ignore */ }
+    } catch (e) { console.error("[withdraw] user notify failed:", e); }
 
     // Post pending request to payment channel too
     try {
-      const payChId = await getSetting<string>("payment_chat_id", "@AstroBlitzPayments");
+      let payChId = await getSetting<string>("payment_chat_id", "");
+      if (!payChId && payCh) payChId = payCh.replace(/^https?:\/\/t\.me\//, "@");
       if (payChId) {
         await sendMessage({
           chat_id: payChId, parse_mode: "HTML",
@@ -206,7 +208,7 @@ export const requestWithdraw = createServerFn({ method: "POST" })
           reply_markup: { inline_keyboard: [[{ text: "🚀 Open AstroBlitz", url: miniApp }]] },
         });
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error("[withdraw] payment channel post failed:", e); }
 
     try {
       const adminId = await getSetting<number | string | null>("admin_tg_id", null);

@@ -47,3 +47,21 @@ export async function requireAdmin(token: string | null | undefined) {
 export function tokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
+
+export async function adminChangeCreds(
+  adminId: string,
+  currentPassword: string,
+  newEmail?: string,
+  newPassword?: string,
+): Promise<{ ok: true }> {
+  const { data: u } = await supabaseAdmin.from("admin_users").select("*").eq("id", adminId).maybeSingle();
+  if (!u) throw new Error("Admin not found");
+  if (!verifyPassword(currentPassword, u.password_hash)) throw new Error("Current password is wrong");
+  const upd: Record<string, string> = {};
+  if (newEmail && newEmail.toLowerCase() !== u.email) upd.email = newEmail.toLowerCase().trim();
+  if (newPassword) upd.password_hash = hashPassword(newPassword);
+  if (Object.keys(upd).length === 0) return { ok: true };
+  const { error } = await supabaseAdmin.from("admin_users").update(upd).eq("id", adminId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}

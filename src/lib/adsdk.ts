@@ -40,10 +40,11 @@ async function showMonetag(extra: SdkExtra): Promise<void> {
 }
 
 async function showGigapub(extra: SdkExtra): Promise<void> {
-  const src = (extra?.src as string) || "https://ad.gigapub.tech/script?id=6929";
+  const id = (extra?.id as string | number) || "6929";
+  const src = (extra?.src as string) || `https://ad.gigapub.tech/script?id=${id}`;
   await loadScript(src);
-  // GigaPub injects showGiga asynchronously after script load; poll briefly.
-  for (let i = 0; i < 25 && typeof window.showGiga !== "function"; i++) {
+  // GigaPub injects window.showGiga asynchronously after the script loads. Poll up to ~6s.
+  for (let i = 0; i < 60 && typeof window.showGiga !== "function"; i++) {
     await new Promise((r) => setTimeout(r, 100));
   }
   if (typeof window.showGiga !== "function") throw new Error("GigaPub SDK not ready");

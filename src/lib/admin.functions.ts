@@ -320,3 +320,23 @@ export const adminReplyTicket = createServerFn({ method: "POST" })
     } catch { /* ignore */ }
     return { ok: true };
   });
+
+// Change admin email / password from the panel (requires current password).
+const ChangeCredsSchema = TokenSchema.extend({
+  current_password: z.string().min(1).max(200),
+  new_email: z.string().email().optional(),
+  new_password: z.string().min(6).max(200).optional(),
+});
+
+export const adminChangeCredentials = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => ChangeCredsSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { requireAdmin, adminChangeCreds } = await import("./admin.server");
+    const session = await requireAdmin(data.token);
+    return await adminChangeCreds(
+      session.admin_id as string,
+      data.current_password,
+      data.new_email,
+      data.new_password,
+    );
+  });

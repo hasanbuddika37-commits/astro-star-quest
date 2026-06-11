@@ -68,7 +68,7 @@ function Panel({ token, onLogout }: { token: string; onLogout: () => void }) {
           <button onClick={onLogout} className="rounded-lg border border-border px-3 py-1 text-xs">Log out</button>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 text-xs">
-          {(["dashboard", "withdrawals", "users", "ads", "tasks", "challenges", "broadcast", "community", "tickets", "settings"] as View[]).map((v) => (
+          {(["dashboard", "withdrawals", "users", "ads", "tasks", "challenges", "broadcast", "community", "tickets", "settings", "profile"] as View[]).map((v) => (
             <button key={v} onClick={() => setView(v)} className={`shrink-0 rounded-lg px-3 py-1.5 font-bold capitalize ${view === v ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"}`}>
               {v}
             </button>
@@ -86,6 +86,7 @@ function Panel({ token, onLogout }: { token: string; onLogout: () => void }) {
         {view === "community" && <CommunityPost token={token} />}
         {view === "tickets" && <Tickets token={token} />}
         {view === "settings" && <Settings token={token} />}
+        {view === "profile" && <Profile token={token} />}
       </main>
     </div>
   );

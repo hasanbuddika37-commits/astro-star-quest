@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import {
-  adminLoginFn, adminStats, adminListWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
+  adminLoginByTgId, adminStats, adminListWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
   adminListTasks, adminSaveTask, adminDeleteTask,
   adminListChallenges, adminSaveChallenge, adminDeleteChallenge,
   adminGetSettings, adminSaveSetting, adminCreateBroadcast,
@@ -13,6 +13,7 @@ import {
   adminListUsers, adminGetUserDetail, adminSuspendUser, adminAdjustBalance,
   adminPostToCommunity, adminAdNetworkCounts,
 } from "@/lib/admin-extra.functions";
+import { useTelegram } from "@/lib/telegram-webapp";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "AstroBlitz Admin" }, { name: "robots", content: "noindex" }] }),
@@ -22,38 +23,34 @@ export const Route = createFileRoute("/admin")({
 type View = "dashboard" | "withdrawals" | "users" | "ads" | "tasks" | "challenges" | "broadcast" | "community" | "tickets" | "settings" | "profile";
 
 function AdminPage() {
+  const { tg, ready } = useTelegram();
+  const login = useServerFn(adminLoginByTgId);
   const [token, setToken] = useState<string | null>(() => (typeof localStorage !== "undefined" ? localStorage.getItem("ab_admin_token") : null));
-  if (!token) return <Login onToken={(t) => { localStorage.setItem("ab_admin_token", t); setToken(t); }} />;
-  return <Panel token={token} onLogout={() => { localStorage.removeItem("ab_admin_token"); setToken(null); }} />;
-}
-
-function Login({ onToken }: { onToken: (t: string) => void }) {
-  const login = useServerFn(adminLoginFn);
-  const [email, setEmail] = useState("athapaththubuddika1@gmail.com");
-  const [pw, setPw] = useState("");
   const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [trying, setTrying] = useState(false);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setErr(null);
-    try { const { token } = await login({ data: { email, password: pw } }); onToken(token); }
-    catch (er) { setErr(er instanceof Error ? er.message : "Failed"); }
-    finally { setBusy(false); }
-  }
+  useEffect(() => {
+    if (token || !ready) return;
+    const initData = tg?.initData ?? "";
+    if (!initData) { setErr("Open this page from inside the AstroBlitz mini-app."); return; }
+    setTrying(true);
+    login({ data: { initData } })
+      .then(({ token }) => { localStorage.setItem("ab_admin_token", token); setToken(token); })
+      .catch((e) => setErr(e instanceof Error ? e.message : "Not authorized"))
+      .finally(() => setTrying(false));
+  }, [ready, tg, token, login]);
+
+  if (token) return <Panel token={token} onLogout={() => { localStorage.removeItem("ab_admin_token"); setToken(null); }} />;
   return (
-    <div className="min-h-dvh grid place-items-center p-6">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 backdrop-blur" style={{ boxShadow: "var(--shadow-glow-purple)" }}>
-        <h1 className="text-2xl font-extrabold">🛰️ Admin Panel</h1>
-        <p className="text-xs text-muted-foreground">AstroBlitz control center</p>
-        <label className="mt-4 block text-xs">Email</label>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-xl bg-background px-3 py-2 text-sm outline-none" />
-        <label className="mt-3 block text-xs">Password</label>
-        <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} className="mt-1 w-full rounded-xl bg-background px-3 py-2 text-sm outline-none" />
-        {err && <p className="mt-3 rounded-lg bg-destructive/15 px-3 py-2 text-xs text-destructive">{err}</p>}
-        <button disabled={busy} className="mt-4 h-11 w-full rounded-xl text-sm font-bold text-primary-foreground disabled:opacity-50" style={{ background: "var(--gradient-primary)" }}>
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+    <div className="min-h-dvh grid place-items-center p-6 text-center">
+      <div className="max-w-sm rounded-3xl border border-border bg-card/80 p-6 backdrop-blur">
+        <div className="text-5xl mb-3">🛰️</div>
+        {trying ? (
+          <p className="text-sm text-muted-foreground">Verifying admin access…</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">{err ?? "🔒 Admin only."}</p>
+        )}
+      </div>
     </div>
   );
 }

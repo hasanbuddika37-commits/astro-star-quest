@@ -54,8 +54,22 @@ export default function MainApp({ initData, profile, onProfile, isAdmin = false 
         {tab === "task" && <TaskTab initData={initData} onCoins={refresh} />}
         {tab === "refer" && <ReferTab initData={initData} />}
         {tab === "withdraw" && <WithdrawTab initData={initData} profile={profile} onCoins={refresh} />}
+        {tab === "admin" && isAdmin && <AdminLauncher />}
       </main>
-      <BottomNav tab={tab} onTab={setTab} />
+      <BottomNav tab={tab} onTab={setTab} isAdmin={isAdmin} />
+    </div>
+  );
+}
+
+function AdminLauncher() {
+  return (
+    <div className="ab-card-in rounded-3xl border border-border bg-card/80 p-6 text-center ab-aurora-border">
+      <div className="text-5xl mb-3">🛰️</div>
+      <h2 className="text-xl font-extrabold">Admin Panel</h2>
+      <p className="mt-1 text-xs text-muted-foreground">Full control center — opens in a new view.</p>
+      <a href="/admin" className="mt-4 inline-flex h-11 items-center justify-center rounded-xl px-6 text-sm font-bold text-primary-foreground ab-glow-pulse" style={{ background: "var(--gradient-primary)" }}>
+        🚀 Open Admin
+      </a>
     </div>
   );
 }

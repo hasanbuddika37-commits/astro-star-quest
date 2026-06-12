@@ -1,0 +1,17 @@
+[build]
+  command = "NITRO_PRESET=netlify bun run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NITRO_PRESET = "netlify"
+
+# TanStack Start file-routes are SPA-aware; Nitro netlify preset emits
+# the function routes automatically. This fallback handles deep links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[functions]
+  node_bundler = "esbuild"

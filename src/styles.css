@@ -54,7 +54,7 @@
   --popover: oklch(0.16 0.06 278);
   --popover-foreground: oklch(0.98 0.01 250);
 
-  --primary: oklch(0.62 0.22 295);            /* nebula purple */
+  --primary: oklch(0.62 0.22 295);
   --primary-foreground: oklch(0.99 0.01 250);
   --secondary: oklch(0.22 0.06 280);
   --secondary-foreground: oklch(0.96 0.02 250);
@@ -62,7 +62,7 @@
   --muted: oklch(0.20 0.05 280);
   --muted-foreground: oklch(0.72 0.03 270);
 
-  --accent: oklch(0.72 0.18 220);              /* cyan accent */
+  --accent: oklch(0.72 0.18 220);
   --accent-foreground: oklch(0.12 0.04 280);
 
   --destructive: oklch(0.62 0.23 25);
@@ -72,7 +72,7 @@
   --input: oklch(0.22 0.06 280);
   --ring: oklch(0.72 0.18 220);
 
-  --gold: oklch(0.82 0.17 75);                 /* BLITZ orange/gold */
+  --gold: oklch(0.82 0.17 75);
   --cyan-accent: oklch(0.78 0.17 215);
   --nebula: oklch(0.55 0.24 305);
 
@@ -84,6 +84,14 @@
     );
   --gradient-blitz: linear-gradient(135deg, var(--gold), oklch(0.7 0.21 35));
   --gradient-primary: linear-gradient(135deg, var(--primary), var(--nebula));
+  --gradient-aurora: linear-gradient(
+    120deg,
+    var(--nebula) 0%,
+    var(--primary) 25%,
+    var(--cyan-accent) 50%,
+    var(--gold) 75%,
+    var(--nebula) 100%
+  );
 }
 
 .dark {
@@ -92,12 +100,8 @@
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
-  html, body, #root {
-    height: 100%;
-  }
+  * { border-color: var(--color-border); }
+  html, body, #root { height: 100%; }
   body {
     background: var(--gradient-space);
     background-attachment: fixed;
@@ -130,14 +134,28 @@
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-@keyframes ab-spin-slow {
-  to { transform: rotate(360deg); }
+@keyframes ab-spin-slow { to { transform: rotate(360deg); } }
+@keyframes ab-aurora {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes ab-glow-pulse {
+  0%, 100% { box-shadow: 0 0 24px color-mix(in oklab, var(--primary) 40%, transparent); }
+  50% { box-shadow: 0 0 40px color-mix(in oklab, var(--cyan-accent) 60%, transparent); }
+}
+@keyframes ab-count-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes ab-card-in {
+  from { transform: translateY(6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 .ab-star {
   position: absolute;
-  width: 2px;
-  height: 2px;
+  width: 2px; height: 2px;
   background: white;
   border-radius: 9999px;
   animation: ab-twinkle 2.4s ease-in-out infinite;
@@ -145,19 +163,13 @@
 .ab-float { animation: ab-float 4s ease-in-out infinite; }
 .ab-rocket-launch { animation: ab-rocket-launch 800ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 .ab-pulse-ring {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   border-radius: 9999px;
   border: 2px solid color-mix(in oklab, var(--primary) 70%, transparent);
   animation: ab-pulse-ring 2.2s ease-out infinite;
 }
 .ab-shimmer-text {
-  background: linear-gradient(
-    90deg,
-    var(--cyan-accent) 0%,
-    var(--gold) 50%,
-    var(--cyan-accent) 100%
-  );
+  background: linear-gradient(90deg, var(--cyan-accent) 0%, var(--gold) 50%, var(--cyan-accent) 100%);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -165,6 +177,32 @@
   animation: ab-shimmer 3s linear infinite;
 }
 .ab-spin-slow { animation: ab-spin-slow 18s linear infinite; }
+.ab-glow-pulse { animation: ab-glow-pulse 3s ease-in-out infinite; }
+.ab-card-in { animation: ab-card-in 350ms ease-out both; }
+.ab-count-up { animation: ab-count-up 420ms ease-out both; }
+
+/* Aurora gradient border for premium cards */
+.ab-aurora-border {
+  position: relative;
+  background-clip: padding-box;
+  border: 1.5px solid transparent;
+}
+.ab-aurora-border::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: var(--gradient-aurora);
+  background-size: 300% 300%;
+  animation: ab-aurora 8s ease infinite;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+}
+.ab-aurora-border > * { position: relative; z-index: 1; }
 
 /* Telegram safe area helpers */
 .ab-safe-top { padding-top: env(safe-area-inset-top); }

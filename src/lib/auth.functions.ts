@@ -159,7 +159,15 @@ export const initSession = createServerFn({ method: "POST" })
       }
     }
 
-    return { profile, isNew, suspended };
+    // Check admin flag
+    let isAdmin = false;
+    try {
+      const { data: adminSetting } = await supabaseAdmin
+        .from("app_settings").select("value").eq("key", "admin_tg_id").maybeSingle();
+      if (adminSetting && Number(adminSetting.value) === tg.id) isAdmin = true;
+    } catch { /* ignore */ }
+
+    return { profile, isNew, suspended, is_admin: isAdmin };
   });
 
 /**

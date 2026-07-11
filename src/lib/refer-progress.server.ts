@@ -73,7 +73,7 @@ export async function progressReferralAndNotify(refereeTgId: number): Promise<vo
       if (!text) continue;
       try {
         await sendMessage({
-          chat_id: after.referrer_tg_id, parse_mode: "HTML", text,
+          chat_id: after.referrer_tg_id as number, parse_mode: "HTML", text,
           reply_markup: { inline_keyboard: [[{ text: "🎮 Open Mini App", url: miniApp }]] },
         });
       } catch (e) { console.error("[refer-progress] notify failed:", e); }

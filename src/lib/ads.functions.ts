@@ -11,14 +11,12 @@ export const getAdSlots = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { profile } = await requireProfile(data.initData);
 
-    // Load network ad-blocks
     const { data: blocks } = await supabaseAdmin
       .from("ad_blocks")
       .select("*")
       .eq("is_enabled", true)
       .order("sort_order");
 
-    // Recent button views (last 12h max — driven per-block)
     const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
     const { data: recent } = await supabaseAdmin
       .from("ad_button_views")
@@ -33,23 +31,23 @@ export const getAdSlots = createServerFn({ method: "POST" })
       if (!prev || new Date(r.created_at) > new Date(prev)) recentByKey.set(k, r.created_at);
     }
 
+    const rewardMin = Number(await getSetting("ad_reward_min", 3));
+    const rewardMax = Number(await getSetting("ad_reward_max", 5));
+
     const now = Date.now();
     const cards = (blocks ?? []).map((b) => {
       const buttons = Array.from({ length: b.buttons_count }).map((_, i) => {
         const last = recentByKey.get(`${b.network}#${i}`);
         const unlocks_at = last ? new Date(last).getTime() + b.cooldown_seconds * 1000 : 0;
-        return {
-          index: i,
-          ready: unlocks_at <= now,
-          unlocks_in_ms: Math.max(0, unlocks_at - now),
-        };
+        return { index: i, ready: unlocks_at <= now, unlocks_in_ms: Math.max(0, unlocks_at - now) };
       });
       return {
         network: b.network,
         label: b.label,
         logo_url: b.logo_url,
-        reward_min: Number(b.reward_min),
-        reward_max: Number(b.reward_max),
+        // Global 3-5 override (per-block reward_min/max shown as info only)
+        reward_min: rewardMin,
+        reward_max: rewardMax,
         cooldown_seconds: b.cooldown_seconds,
         button_lock_seconds: b.button_lock_seconds,
         sdk_extra: b.sdk_extra,
@@ -58,8 +56,7 @@ export const getAdSlots = createServerFn({ method: "POST" })
     });
 
     const cd = Number(await getSetting("ad_cooldown_seconds", COOLDOWN_FALLBACK));
-    const reward = Number(await getSetting("ad_reward_coins", 50));
-    return { cards, cooldown_seconds: cd, reward };
+    return { cards, cooldown_seconds: cd, reward: rewardMax };
   });
 
 const ClaimSchema = z.object({
@@ -71,23 +68,23 @@ const ClaimSchema = z.object({
 export const claimAd = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => ClaimSchema.parse(d))
   .handler(async ({ data }) => {
-    const { requireProfile, creditCoins } = await import("./tg-auth.server");
+    const { requireProfile } = await import("./tg-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { progressReferralAndNotify } = await import("./refer-progress.server");
     const { profile } = await requireProfile(data.initData);
-    // Small fixed reward for non-watch slots (revive/task/daily). No coins for "withdraw"/"claim" trigger ads.
-    const reward = ["withdraw", "claim", "revive", "task", "daily"].includes(data.slot) ? 0 : 0;
+    // Trigger ads (revive/task/daily/withdraw/claim) give NO coins directly.
+    const reward = 0;
     await supabaseAdmin.from("ad_views").insert({
       tg_id: profile.tg_id, slot: data.slot, network: data.network ?? null, reward,
     });
     await supabaseAdmin.from("profiles")
       .update({ ads_watched: (profile.ads_watched ?? 0) + 1 })
       .eq("tg_id", profile.tg_id);
-    if (reward > 0) await creditCoins(profile.tg_id, reward, "ad_watch", { slot: data.slot });
-    await supabaseAdmin.rpc("maybe_verify_referral", { p_referee_tg_id: profile.tg_id });
-    return { reward, new_balance: Number(profile.coins) + reward };
+    await progressReferralAndNotify(profile.tg_id);
+    return { reward, new_balance: Number(profile.coins) };
   });
 
-// ─── Per-button card ad claim ───
+// ─── Per-button card ad claim (Watch Ads tab) ───
 const ButtonClaimSchema = z.object({
   initData: z.string().min(10),
   network: z.string().min(1).max(64),
@@ -97,8 +94,9 @@ const ButtonClaimSchema = z.object({
 export const claimAdButton = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => ButtonClaimSchema.parse(d))
   .handler(async ({ data }) => {
-    const { requireProfile, creditCoins } = await import("./tg-auth.server");
+    const { requireProfile, creditCoins, getSetting } = await import("./tg-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { progressReferralAndNotify } = await import("./refer-progress.server");
     const { profile } = await requireProfile(data.initData);
 
     const { data: block } = await supabaseAdmin
@@ -106,7 +104,6 @@ export const claimAdButton = createServerFn({ method: "POST" })
     if (!block || !block.is_enabled) throw new Error("Ad block disabled");
     if (data.button_index >= block.buttons_count) throw new Error("Invalid button");
 
-    // Per-button 12h cooldown check
     const since = new Date(Date.now() - block.cooldown_seconds * 1000).toISOString();
     const { data: recent } = await supabaseAdmin
       .from("ad_button_views")
@@ -118,15 +115,13 @@ export const claimAdButton = createServerFn({ method: "POST" })
       .limit(1);
     if (recent && recent.length) throw new Error("Button on cooldown");
 
-    const min = Number(block.reward_min);
-    const max = Number(block.reward_max);
+    // Random 3–5 coin reward (global setting overrides per-block config)
+    const min = Number(await getSetting("ad_reward_min", 3));
+    const max = Number(await getSetting("ad_reward_max", 5));
     const reward = Math.floor(min + Math.random() * (max - min + 1));
 
     await supabaseAdmin.from("ad_button_views").insert({
-      tg_id: profile.tg_id,
-      network: data.network,
-      button_index: data.button_index,
-      reward,
+      tg_id: profile.tg_id, network: data.network, button_index: data.button_index, reward,
     });
     await supabaseAdmin.from("ad_views").insert({
       tg_id: profile.tg_id, slot: `card_${data.network}`, network: data.network, reward,
@@ -137,11 +132,11 @@ export const claimAdButton = createServerFn({ method: "POST" })
 
     const new_balance = await creditCoins(profile.tg_id, reward, "ad_watch",
       { network: data.network, button: data.button_index });
-    await supabaseAdmin.rpc("maybe_verify_referral", { p_referee_tg_id: profile.tg_id });
+    await progressReferralAndNotify(profile.tg_id);
     return { reward, new_balance };
   });
 
-// Get a random enabled ad-network name (for "reward claim" ads)
+// Random enabled ad-network name (for "reward claim" ads — includes Taddy if enabled)
 export const getRandomAdNetwork = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ initData: z.string().min(10) }).parse(d))
   .handler(async ({ data }) => {

@@ -1,47 +1,82 @@
-## ස්කෝප් (අද දවසේ ඉවර කරන්න)
+# AstroBlitz — Major Update Plan
 
-### 1. Netlify + GitHub host compat
-- `netlify.toml` එක add කරනවා — TanStack Start Netlify preset (`nitro` netlify target) sets done via `vite.config.ts` server preset switch.
-- `package.json` build script: `vite build` (already), publish dir = `dist`, functions auto-handled.
-- `.env.example` එකට require වෙන env vars list කරනවා: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `TELEGRAM_BOT_TOKEN`, `LOVABLE_API_KEY` (optional).
-- README එකේ Netlify deploy steps + GitHub sync steps.
-- **සටහන:** Lovable preview එක තවදුරටත් වැඩ කරයි. Netlify production cron URL වෙනස් වෙන නිසා DB එකේ stored cron URLs admin Settings → "Site URL" එකෙන් override කරන්න පුළුවන් කරනවා.
+මේ update එකේ කොටස් ගොඩක් තියෙන නිසා confirm කරලා තමයි ගොඩනගන්නේ.
 
-### 2. Admin gate වෙනස් කිරීම
-- `/admin` route එක delete කරනවා.
-- Mini app එක ඇතුළත `tg_id === ADMIN_TG_ID` (app_settings key) user ට පමණක් වෙනම **Admin** tab එකක් render කරනවා (අනිත් අයට hidden).
-- Admin tab එක තුළ දැනටමත් තියෙන full admin panel (Users, Ads, Withdrawals, Community, Settings, Profile) move කරනවා — re-use the existing components, no logic re-write.
+## 1. Refer System — 3 අදියර rewards
 
-### 3. Withdraw requirements සම්පූර්ණ කිරීම
-- Server `requestWithdraw` එකේ check කරනවා: `min_ads`, `min_refers`, `min_level`, `min_referrer_verified` ඔක්කොම. Admin Settings UI එකේත් මේ සියල්ල edit කරන්න පුළුවන් කරනවා.
-- UI එකේ requirement progress bars පෙන්වනවා (X / Y ads, X / Y refers, level X / Y).
+**Stage 0 (Join):** නව user කෙනෙක් refer link එකෙන් join වූ මොහොතේම **referrer ට 25 coins**.
+**Stage 1 (Day 1 — 10 ads):** Referred user පලමු දිනයේ 10 ads බැලුවම **referrer ට 50 coins**.
+**Stage 2 (Day 2 — 15 ads):** දෙවන දිනයේ (join කරලා 24h+) 15 ads බැලුවම **referrer ට 75 coins**.
 
-### 4. TON live price fix
-- CoinGecko + Binance + OKX (3-way) fallback. Cache TTL 60s. Server `refreshPrices` රාජකාරිය නැවත ලියනවා error logging එක්ක.
-- Withdraw tab එකේ "Live price" badge + last-update time පෙන්වනවා.
+- `profiles` වලට `refer_stage` (0/1/2/3), `day1_ads_watched`, `day2_ads_watched`, `day1_date`, `day2_date` columns.
+- පවතින `maybe_verify_referral` function එක අලුත් 3-stage logic එකට වෙනස් කරනවා.
+- Refer Tab එකේ history: friend එක්කෙනා යටතේ **Stage 1 ✅ / Stage 2 ⏳ 6/10 ads / Stage 3 🔒** කියලා progress පෙන්නනවා.
+- සෑම stage එකකදීම **Telegram bot හරහා referrer ට message + "🎮 Open Mini App" button** යවනවා.
+- පරණ single-stage `refer_reward_coins` + `refer_verify_ads` settings ඉවත් කරලා `refer_stage0_coins=25`, `refer_stage1_coins=50`, `refer_stage1_ads=10`, `refer_stage2_coins=75`, `refer_stage2_ads=15` ලෙස දානවා.
 
-### 5. Daily reminder messages ලස්සන කරන එක
-- Banner photo එක Lovable assets වලට upload කරනවා (user upload එක).
-- `daily-reminder` cron එක `sendPhoto` use කරනවා, emoji-rich caption + "🚀 Open AstroBlitz" inline button. 3 variants (morning/afternoon/evening) — random pick.
+## 2. Taddy Ad Network integration
 
-### 6. Color + card animations
-- `styles.css` එකට cosmic gradient keyframes (`aurora`, `float`, `glow-pulse`) add කරනවා.
-- Tab cards වලට animated gradient border + hover glow. Splash logo orbit ring animation. Coin counter count-up animation.
+- `src/routes/__root.tsx` head එකට Taddy SDK script tag එක දානවා (pub-id `ce87…6fd9`).
+- `src/lib/adsdk.ts` එකට `taddy` provider එක එකතු කරනවා (`window.Taddy?.showAd`).
+- Admin `ad_blocks` වල Watch Ads block එකට Taddy network එක daily cap 10 එක්ක enable කරනවා.
+- Random ad picker (`getRandomAdNetwork`) එකට Taddy weight එක එකතු කරනවා.
+- **Watch Ads coin reward:** 3–5 coins random (settings `ad_reward_min=3`, `ad_reward_max=5`).
 
-### 7. End-to-end bug sweep
-- WatchTab: ad-completion gate verify (no premature reward).
-- GameTab: claim popup → ad → server credit (1 coin/level).
-- Withdraw: pending block + channel/admin Telegram posts (with emoji) verified.
-- Welcome message: USDT_BEP20 wording check.
-- Suspended user flow: full lock except support ticket — verify.
+## 3. Gigapub full ad fix
+
+- `adsdk.ts` gigapub loader එකේ init/show sequence නැවත ලියනවා (SDK script async load වෙන්න wait කරලා `showAd()` call එකට හරි parameters දෙනවා). Ad load fail වුනොත් fallback network එකකට යනවා.
+
+## 4. Task Tab — 3 categories
+
+- `tasks` table එකට `category` column: `main` | `partner` | `community` (default `main`).
+- Task Tab එක 3 tab UI එකකට වෙන් කරනවා.
+- Admin Panel → Tasks: category dropdown එක්ක create/edit/delete වෙන වෙනම කරන්න පුළුවන්.
+- **Telegram channel join verify:** task type `telegram_channel` වලට bot API `getChatMember` හරහා user කෙනා member ද කියලා server-side check කරනවා (bot එක channel එකේ admin නිසා). Membership `member/administrator/creator` නම් විතරයි reward දෙන්නේ; නැත්නම් "Please join the channel first" error එකක්.
+
+## 5. Withdrawals — USDT BEP20 only
+
+- TON option එක Withdraw Tab, Admin Panel, notifications, database enum/check සියල්ලෙන් ඉවත් කරනවා.
+- `withdrawals.currency` USDT_BEP20 විතරයි accept කරන්නේ (validation trigger).
+- Wallet input එකේ TON field එක ඉවත් කරලා USDT BEP20 විතරයි.
+- Price cache TON ඉවත් කරනවා (USDT price cache විතරයි ඉතුරු).
+
+## 6. Withdraw Requirements (අලුත්)
+
+Withdraw button unlock වෙන්නේ මේ **3ම** සම්පූර්ණ නම් විතරයි:
+- **අද දින** Watch-Ads tab එකෙන් 20+ ads (daily reset).
+- **Verified refers ≥ 2** (stage 2 දක්වා ගිය අය).
+- **All active Main tasks completed.**
+
+Requirements card එකට 3 progress lines එකතු කරනවා.
+
+## 7. Pending withdraw block
+
+දැනටමත් `has_pending` logic තියෙනවා — UI + server දෙකේම extra guard confirm කරලා message clearer කරනවා ("⏳ Pending withdrawal එකක් තියෙනවා. Approve/Reject වෙන තුරු අලුත් එකක් submit කරන්න බෑ.").
 
 ## Technical details
 
-- **Netlify adapter:** TanStack Start uses Vite + Nitro under the hood. Switch via `vite.config.ts` adding `nitro: { preset: 'netlify' }` or rely on `@netlify/vite-plugin-tanstack-start` if available. Server functions and `/api/public/*` routes deploy as Netlify Functions automatically.
-- **Files touched:** `netlify.toml` (new), `vite.config.ts`, `README.md`, `.env.example` (new), `src/routes/admin.tsx` (delete), `src/components/tabs/AdminTab.tsx` (new — wraps existing admin code), `src/components/MainApp.tsx` (conditional admin tab), `src/lib/withdraw.functions.ts`, `src/components/tabs/WithdrawTab.tsx`, `src/routes/api/public/cron/daily-reminder.ts`, `src/styles.css`, plus a migration for new settings keys (`min_level`, `min_referrer_verified`, `site_url`).
-- **Migration:** 1 migration — settings keys + admin_tg_id seed (if missing).
-- **Image asset:** upload user banner via lovable-assets CLI → `src/assets/promo-banner.asset.json`.
+**Database migration:**
+- `ALTER TABLE profiles ADD refer_stage int DEFAULT 0, day1_ads int DEFAULT 0, day2_ads int DEFAULT 0, day1_date date, day2_date date`
+- `ALTER TABLE tasks ADD category text DEFAULT 'main' CHECK (category IN ('main','partner','community'))`
+- Replace `maybe_verify_referral` → new `progress_referral(p_referee bigint)` (called on join + each ad watch).
+- Trigger on `withdrawals` to reject non-USDT_BEP20.
+- New settings rows for refer stages, ad reward min/max.
 
-## ඉදිරියට
+**Files touched:**
+- `src/lib/refer.functions.ts` — 3-stage stats + share URL
+- `src/lib/ads.functions.ts`, `src/lib/adsdk.ts` — Taddy + gigapub fix + random reward
+- `src/lib/tasks.functions.ts` — category filter + telegram join verify
+- `src/lib/withdraw.functions.ts` — USDT only + new requirements
+- `src/lib/admin.functions.ts` + `src/lib/admin-extra.functions.ts` — task category, ad_blocks Taddy option
+- `src/lib/telegram.server.ts` — `sendReferStageMessage(referrer_tg_id, stage)` helper with Open Mini App inline keyboard
+- `src/components/tabs/TaskTab.tsx`, `WithdrawTab.tsx`, `WatchTab.tsx`, `ReferTab.tsx`
+- `src/routes/admin.tsx` — task category selector, ad_blocks Taddy toggle
+- `src/routes/__root.tsx` — Taddy script
 
-මේ plan එක approve කරන්න — එතකොට මම මෙය එක batch එකකින් implement කරනවා (parallel file writes + 1 migration), credits අඩුවෙන් යනවා.
+**Non-breaking:**
+- Existing users' TON balances/wallets retained but hidden (read-only in admin history).
+- Existing pending TON withdrawals: admin can still reject; no new TON submissions.
+
+---
+
+**Approve කරන්න මේ scope එක — approve වුනාට පස්සේ migration + code එකපාරටම ලියනවා.**

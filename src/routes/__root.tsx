@@ -104,6 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { src: "https://sad.adsgram.ai/js/sad.min.js", async: true },
       { src: "https://libtl.com/sdk.js", async: true, "data-zone": "11115938", "data-sdk": "show_11115938" } as never,
       { src: "https://ad.gigapub.tech/script?id=6929", async: true },
+      { src: "https://sdk.taddy.pro/web/taddy.min.js", async: true, "data-pub-id": "ce8790eb749918b088605145e3626fd9" } as never,
     ],
   }),
   shellComponent: RootShell,

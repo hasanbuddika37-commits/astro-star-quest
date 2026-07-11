@@ -107,29 +107,16 @@ export const initSession = createServerFn({ method: "POST" })
       throw new Error(`Profile upsert failed: ${error?.message ?? "unknown"}`);
     }
 
-    // On brand-new signup with referrer, pay 50 instant coins to inviter and notify them.
+    // 3-stage refer: stage 0 = instant coins to referrer + bot message with Open Mini App button.
     if (isNew && referrerTgId && !suspended) {
       try {
-        const { data: settings } = await supabaseAdmin
-          .from("app_settings").select("key,value")
-          .in("key", ["refer_instant_coins", "mini_app_url"]);
-        const map = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
-        const instant = Number(map.refer_instant_coins ?? 50);
-        const miniApp = (map.mini_app_url as string) ?? "https://t.me/AstroBlitzbot/play";
-        await supabaseAdmin.rpc("credit_coins", {
-          p_tg_id: referrerTgId, p_delta: instant,
-          p_reason: "refer_instant", p_meta: { referee: tg.id } as never,
-        });
-        await sendMessage({
-          chat_id: referrerTgId, parse_mode: "HTML",
-          text:
-            `🎉 <b>New friend joined!</b> ✨\n\n` +
-            `👤 ${tg.first_name}${tg.username ? ` (@${tg.username})` : ""}\n` +
-            `💰 You earned <b>+${instant} coins</b> instantly!\n` +
-            `🚀 Earn <b>100 more</b> when they finish all main tasks, 5 game levels & 10 ads.`,
-          reply_markup: { inline_keyboard: [[{ text: "🚀 Open AstroBlitz", url: miniApp }]] },
-        }).catch(() => {});
-      } catch { /* ignore */ }
+        // Ensure joined_date is set for the new referee before advancing stage.
+        await supabaseAdmin.from("profiles")
+          .update({ joined_date: new Date().toISOString().slice(0, 10) } as never)
+          .eq("tg_id", tg.id);
+        const { progressReferralAndNotify } = await import("@/lib/refer-progress.server");
+        await progressReferralAndNotify(tg.id);
+      } catch (e) { console.error("[auth] refer stage0 failed:", e); }
     }
 
     // Notify admin on truly new user (best effort)

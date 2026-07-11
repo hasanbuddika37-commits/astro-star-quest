@@ -198,6 +198,9 @@ const TaskSaveSchema = TokenSchema.extend({
   kind: z.string().default("link"),
   is_active: z.boolean().default(true),
   sort_order: z.number().int().default(0),
+  task_type: z.enum(["main", "partner", "community"]).default("main"),
+  channel_username: z.string().max(120).optional().or(z.literal("")),
+  verify_via_join: z.boolean().default(false),
 });
 
 export const adminSaveTask = createServerFn({ method: "POST" })
@@ -210,11 +213,14 @@ export const adminSaveTask = createServerFn({ method: "POST" })
       title: data.title, description: data.description ?? null,
       reward: data.reward, url: data.url || null, kind: data.kind,
       is_active: data.is_active, sort_order: data.sort_order,
+      task_type: data.task_type,
+      channel_username: data.channel_username || null,
+      verify_via_join: data.verify_via_join,
     };
     if (data.id) {
-      await supabaseAdmin.from("tasks").update(row).eq("id", data.id);
+      await supabaseAdmin.from("tasks").update(row as never).eq("id", data.id);
     } else {
-      await supabaseAdmin.from("tasks").insert(row);
+      await supabaseAdmin.from("tasks").insert(row as never);
     }
     return { ok: true };
   });

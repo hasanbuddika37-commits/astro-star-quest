@@ -183,35 +183,61 @@ function Tasks({ token }: { token: string }) {
   const save = useServerFn(adminSaveTask);
   const del = useServerFn(adminDeleteTask);
   const [rows, setRows] = useState<Awaited<ReturnType<typeof adminListTasks>>>([]);
-  const empty = { title: "", description: "", reward: 100, url: "", kind: "link", is_active: true, sort_order: 0 };
+  const empty = { title: "", description: "", reward: 100, url: "", kind: "link", is_active: true, sort_order: 0, task_type: "main" as "main" | "partner" | "community", channel_username: "", verify_via_join: false };
   const [f, setF] = useState<typeof empty & { id?: string }>(empty);
+  const [filterCat, setFilterCat] = useState<"all" | "main" | "partner" | "community">("all");
   async function load() { setRows(await list({ data: { token } })); }
   useEffect(() => { load().catch(console.error); }, []);
   async function submit() {
     await save({ data: { token, ...f, reward: Number(f.reward), sort_order: Number(f.sort_order) } });
     setF(empty); await load();
   }
+  const filtered = rows.filter((t) => filterCat === "all" || ((t as unknown as { task_type?: string }).task_type ?? "main") === filterCat);
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="space-y-2">
-        {rows.map((t) => (
-          <div key={t.id} className="rounded-xl border border-border bg-card/70 p-3 text-xs">
-            <p className="font-bold">{t.title} <span className="text-gold">+{t.reward}</span></p>
-            <p className="text-muted-foreground">{t.description}</p>
-            <p className="font-mono break-all">{t.url}</p>
-            <div className="mt-2 flex gap-2">
-              <button onClick={() => setF({ id: t.id, title: t.title, description: t.description ?? "", reward: Number(t.reward), url: t.url ?? "", kind: t.kind, is_active: t.is_active, sort_order: t.sort_order })} className="rounded-lg border border-border px-2 py-1">Edit</button>
-              <button onClick={async () => { if (confirm("Delete?")) { await del({ data: { token, id: t.id } }); load(); } }} className="rounded-lg bg-destructive px-2 py-1 text-destructive-foreground">Delete</button>
+        <div className="flex gap-1">
+          {(["all", "main", "partner", "community"] as const).map((c) => (
+            <button key={c} onClick={() => setFilterCat(c)} className={`rounded-lg px-2 py-1 text-[11px] capitalize ${filterCat === c ? "bg-primary text-primary-foreground" : "border border-border"}`}>{c}</button>
+          ))}
+        </div>
+        {filtered.map((t) => {
+          const tt = (t as unknown as { task_type?: string; channel_username?: string | null; verify_via_join?: boolean });
+          return (
+            <div key={t.id} className="rounded-xl border border-border bg-card/70 p-3 text-xs">
+              <p className="font-bold">{t.title} <span className="text-gold">+{t.reward}</span> <span className="text-[10px] text-muted-foreground">[{tt.task_type ?? "main"}]</span></p>
+              <p className="text-muted-foreground">{t.description}</p>
+              <p className="font-mono break-all">{t.url}</p>
+              {tt.channel_username && <p className="text-cyan-accent">🔗 join-verify: {tt.channel_username}</p>}
+              <div className="mt-2 flex gap-2">
+                <button onClick={() => setF({ id: t.id, title: t.title, description: t.description ?? "", reward: Number(t.reward), url: t.url ?? "", kind: t.kind, is_active: t.is_active, sort_order: t.sort_order, task_type: (tt.task_type as "main") ?? "main", channel_username: tt.channel_username ?? "", verify_via_join: tt.verify_via_join ?? false })} className="rounded-lg border border-border px-2 py-1">Edit</button>
+                <button onClick={async () => { if (confirm("Delete?")) { await del({ data: { token, id: t.id } }); load(); } }} className="rounded-lg bg-destructive px-2 py-1 text-destructive-foreground">Delete</button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="rounded-2xl border border-border bg-card/70 p-4">
         <h3 className="font-bold">{f.id ? "Edit task" : "New task"}</h3>
+        <Field label="Category">
+          <select className="w-full bg-background rounded px-2 py-1" value={f.task_type} onChange={(e) => setF({ ...f, task_type: e.target.value as "main" })}>
+            <option value="main">🎯 Main (counts for withdraw)</option>
+            <option value="partner">🤝 Partner</option>
+            <option value="community">💬 Community</option>
+          </select>
+        </Field>
         <Field label="Title"><input className="w-full bg-background rounded px-2 py-1" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field>
         <Field label="Description"><textarea className="w-full bg-background rounded px-2 py-1" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         <Field label="Reward (coins)"><input type="number" className="w-full bg-background rounded px-2 py-1" value={f.reward} onChange={(e) => setF({ ...f, reward: Number(e.target.value) })} /></Field>
         <Field label="URL"><input className="w-full bg-background rounded px-2 py-1" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} /></Field>
+        <Field label="Kind">
+          <select className="w-full bg-background rounded px-2 py-1" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
+            <option value="link">link</option>
+            <option value="telegram_channel">telegram_channel (verify via bot)</option>
+          </select>
+        </Field>
+        <Field label="Channel @username (for verify, bot must be admin)"><input className="w-full bg-background rounded px-2 py-1" value={f.channel_username} onChange={(e) => setF({ ...f, channel_username: e.target.value })} placeholder="@astroblitzcommunity" /></Field>
+        <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={f.verify_via_join} onChange={(e) => setF({ ...f, verify_via_join: e.target.checked })} /> Verify join via bot</label>
         <Field label="Sort order"><input type="number" className="w-full bg-background rounded px-2 py-1" value={f.sort_order} onChange={(e) => setF({ ...f, sort_order: Number(e.target.value) })} /></Field>
         <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={f.is_active} onChange={(e) => setF({ ...f, is_active: e.target.checked })} /> Active</label>
         <div className="mt-3 flex gap-2">

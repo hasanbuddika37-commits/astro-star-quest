@@ -9,8 +9,11 @@ export const getReferStats = createServerFn({ method: "POST" })
     const { profile } = await requireProfile(data.initData);
 
     const bot = (await getSetting("bot_username", "AstroBlitzbot")) as string;
-    const reward = Number(await getSetting("refer_reward_coins", 500));
-    const needAds = Number(await getSetting("refer_verify_ads", 10));
+    const r0 = Number(await getSetting("refer_stage0_coins", 25));
+    const r1 = Number(await getSetting("refer_stage1_coins", 50));
+    const r2 = Number(await getSetting("refer_stage2_coins", 75));
+    const n1 = Number(await getSetting("refer_stage1_ads", 10));
+    const n2 = Number(await getSetting("refer_stage2_ads", 15));
     const pct = Number(await getSetting("refer_commission_pct", 10));
 
     const { count: total } = await supabaseAdmin
@@ -26,7 +29,7 @@ export const getReferStats = createServerFn({ method: "POST" })
 
     const { data: list } = await supabaseAdmin
       .from("profiles")
-      .select("tg_id, first_name, username, ads_watched, created_at")
+      .select("tg_id, first_name, username, ads_watched, day1_ads, day2_ads, refer_stage, created_at")
       .eq("referrer_tg_id", profile.tg_id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -36,8 +39,7 @@ export const getReferStats = createServerFn({ method: "POST" })
       share_url: `https://t.me/${bot}/play?startapp=${profile.refer_code}`,
       total_refers: total ?? 0,
       verified_refers: profile.verified_refer_count ?? 0,
-      reward_per_verified: reward,
-      ads_needed: needAds,
+      stages: { r0, r1, r2, n1, n2 },
       commission_pct: pct,
       earned_commission,
       list: list ?? [],

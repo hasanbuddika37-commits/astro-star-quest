@@ -16,10 +16,8 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
   const mineTickets = useServerFn(listTickets);
   const pickAd = useServerFn(getRandomAdNetwork);
   const [d, setD] = useState<Data | null>(null);
-  const [currency, setCurrency] = useState<"TON" | "USDT_BEP20">("TON");
   const [amount, setAmount] = useState("");
-  const [walletTon, setWalletTon] = useState("");
-  const [walletUsdt, setWalletUsdt] = useState("");
+  const [wallet, setWallet] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<"withdraw" | "history" | "support">("withdraw");
@@ -31,15 +29,16 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
 
   async function refresh() {
     const r = await get({ data: { initData } });
-    setD(r); setWalletTon(r.wallet_ton); setWalletUsdt(r.wallet_usdt_bep20);
+    setD(r); setWallet(r.wallet_usdt_bep20);
   }
   useEffect(() => { mounted.current = true; refresh().catch((e) => setErr(String(e))); return () => { mounted.current = false; }; }, []);
 
   async function onSaveWallet() {
     setMsg(null); setErr(null);
+    if (!wallet.trim()) { setErr("Enter your USDT (BEP20) address"); return; }
     try {
-      await save({ data: { initData, wallet_ton: walletTon, wallet_usdt_bep20: walletUsdt } });
-      setMsg("✅ Wallets saved");
+      await save({ data: { initData, wallet_usdt_bep20: wallet } });
+      setMsg("✅ Wallet saved");
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("success");
     } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
   }
@@ -50,15 +49,14 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
     if (!coins) { setErr("Enter amount in coins"); return; }
     setBusy(true);
     try {
-      // Ad MUST play (strict). If it fails, do NOT submit.
       try {
         const net = await pickAd({ data: { initData } });
         if (net?.network) await showAd(net.network, net.sdk_extra as never, "reward");
-      } catch (e) {
+      } catch {
         setErr("Ad failed — please retry."); setBusy(false); return;
       }
-      const w = await submit({ data: { initData, currency, coins } });
-      setMsg(`✅ Submitted — ${Number(w.net_amount).toFixed(6)} ${currency === "TON" ? "TON" : "USDT"}`);
+      const w = await submit({ data: { initData, coins } });
+      setMsg(`✅ Submitted — ${Number(w.net_amount).toFixed(6)} USDT`);
       setAmount("");
       onCoins(Number(profile.coins) - coins);
       await refresh();
@@ -79,46 +77,43 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
 
   const coinsNum = Number(amount) || 0;
   const previewUsd = coinsNum * d.coin_to_usd_rate;
-  const previewPrice = currency === "TON" ? d.prices.TON : d.prices.USDT;
-  const previewNative = previewPrice > 0 ? previewUsd / previewPrice : 0;
   const feeUsd = d.fee_flat_usd + previewUsd * (d.fee_pct / 100);
   const previewNetUsd = Math.max(0, previewUsd - feeUsd);
-  const previewNet = previewPrice > 0 ? previewNetUsd / previewPrice : 0;
+  const previewNet = previewNetUsd; // USDT ≈ 1 USD
   const overLimit = coinsNum > d.coins;
   const underMin = coinsNum > 0 && previewUsd < d.min_withdraw_usd;
   const overMax = previewUsd > d.max_withdraw_usd;
   const maxCoins = Math.floor(d.max_withdraw_usd / d.coin_to_usd_rate);
   const reqMet = d.requirements.met;
   const blocked = d.has_pending;
-  void previewNative;
 
   return (
     <div>
-      <h2 className="text-xl font-extrabold">💸 Withdraw</h2>
+      <h2 className="text-xl font-extrabold">💸 Withdraw (USDT BEP20)</h2>
       <div className="mt-2 rounded-2xl border border-border bg-card/70 p-3 text-xs">
         Balance: <b className="text-gold">{Number(d.coins).toLocaleString()}</b> coins ≈ <b>${d.usd_balance.toFixed(4)}</b>
         <div className="mt-1 grid grid-cols-2 gap-x-3 text-[11px] text-muted-foreground">
-          <span>💎 TON: <b className="text-foreground">${d.prices.TON.toFixed(3)}</b></span>
           <span>💵 USDT: <b className="text-foreground">${d.prices.USDT.toFixed(3)}</b></span>
           <span>Fee: ${d.fee_flat_usd} + {d.fee_pct}%</span>
-          <span>Min ${d.min_withdraw_usd} • Max ${d.max_withdraw_usd}</span>
+          <span>Min ${d.min_withdraw_usd}</span>
+          <span>Max ${d.max_withdraw_usd}</span>
         </div>
       </div>
 
-      {/* Withdraw requirements */}
       <div className={`mt-2 rounded-2xl border p-3 text-xs ${reqMet ? "border-green-500/30 bg-green-500/5" : "border-yellow-500/30 bg-yellow-500/5"}`}>
         <p className="font-bold">{reqMet ? "✅ Requirements met" : "🔒 Withdraw requirements"}</p>
-        <p className="text-muted-foreground">
-          📺 Ads watched: <b className="text-foreground">{d.requirements.ads_done}</b> / {d.requirements.min_ads}
-          {d.requirements.min_refers > 0 && (
-            <> • 👥 Verified refers: <b className="text-foreground">{d.requirements.refers_done}</b> / {d.requirements.min_refers}</>
+        <ul className="mt-1 space-y-0.5 text-muted-foreground">
+          <li>📺 Today's ads: <b className={d.requirements.ads_done_today >= d.requirements.min_ads_daily ? "text-green-300" : "text-foreground"}>{d.requirements.ads_done_today}</b> / {d.requirements.min_ads_daily}</li>
+          <li>👥 Verified refers: <b className={d.requirements.refers_done >= d.requirements.min_refers ? "text-green-300" : "text-foreground"}>{d.requirements.refers_done}</b> / {d.requirements.min_refers}</li>
+          {d.requirements.require_main_tasks && (
+            <li>✅ Main tasks pending: <b className={d.requirements.main_tasks_pending === 0 ? "text-green-300" : "text-destructive"}>{d.requirements.main_tasks_pending}</b></li>
           )}
-        </p>
+        </ul>
       </div>
 
       {blocked && (
         <div className="mt-2 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-yellow-200">
-          ⏳ You have a pending withdrawal. Please wait for it to be processed before submitting another.
+          ⏳ Pending withdrawal exists. Wait until it's approved or rejected before submitting another.
         </div>
       )}
 
@@ -130,21 +125,16 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
 
       {tab === "withdraw" && (
         <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setCurrency("TON")} className={`rounded-xl border border-border py-3 text-sm font-bold ${currency === "TON" ? "text-primary-foreground" : "text-muted-foreground"}`} style={currency === "TON" ? { background: "var(--gradient-primary)" } : undefined}>💎 TON</button>
-            <button onClick={() => setCurrency("USDT_BEP20")} className={`rounded-xl border border-border py-3 text-sm font-bold ${currency === "USDT_BEP20" ? "text-primary-foreground" : "text-muted-foreground"}`} style={currency === "USDT_BEP20" ? { background: "var(--gradient-primary)" } : undefined}>💵 USDT (BEP20)</button>
-          </div>
-
           <div className="rounded-2xl border border-border bg-card/70 p-3">
-            <label className="text-xs text-muted-foreground">{currency === "TON" ? "TON wallet address" : "USDT BEP20 (BSC) wallet address"}</label>
+            <label className="text-xs text-muted-foreground">USDT BEP20 (BSC) wallet address</label>
             <input
-              value={currency === "TON" ? walletTon : walletUsdt}
-              onChange={(e) => (currency === "TON" ? setWalletTon(e.target.value) : setWalletUsdt(e.target.value))}
-              className="mt-1 w-full rounded-xl bg-background px-3 py-2 text-sm outline-none border border-border"
-              placeholder={currency === "TON" ? "UQ…" : "0x…"}
+              value={wallet}
+              onChange={(e) => setWallet(e.target.value)}
+              className="mt-1 w-full rounded-xl bg-background px-3 py-2 text-sm outline-none border border-border font-mono"
+              placeholder="0x…"
             />
             <button onClick={onSaveWallet} className="mt-2 h-9 w-full rounded-xl text-xs font-bold text-primary-foreground" style={{ background: "var(--gradient-blitz)" }}>
-              💾 Save wallets
+              💾 Save wallet
             </button>
           </div>
 
@@ -157,7 +147,7 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
               <div>≈ <b className="text-foreground">${previewUsd.toFixed(4)}</b></div>
               <div className="text-right">Fee: <b className="text-foreground">${feeUsd.toFixed(4)}</b></div>
-              <div className="col-span-2 text-right">Net: <b className="text-gold">{previewNet.toFixed(6)} {currency === "TON" ? "TON" : "USDT"}</b></div>
+              <div className="col-span-2 text-right">Net: <b className="text-gold">{previewNet.toFixed(6)} USDT</b></div>
             </div>
             {overLimit && <p className="mt-1 text-xs text-destructive">Exceeds your balance</p>}
             {underMin && <p className="mt-1 text-xs text-destructive">Below ${d.min_withdraw_usd} minimum</p>}
@@ -179,7 +169,7 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
             <div key={w.id} className="rounded-2xl border border-border bg-card/60 p-3 text-xs space-y-1">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{w.currency === "TON" ? "💎" : "💵"}</span>
+                  <span className="text-lg">💵</span>
                   <span><b>{Number(w.net_amount).toFixed(6)}</b> {w.currency === "TON" ? "TON" : "USDT"}</span>
                 </div>
                 <Status status={w.status} />

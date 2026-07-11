@@ -405,11 +405,16 @@ export type Database = {
           best_score: number
           coins: number
           created_at: string
+          day1_ads: number
+          day1_date: string | null
+          day2_ads: number
+          day2_date: string | null
           device_fingerprint: string | null
           first_name: string | null
           game_level: number
           id: string
           is_suspended: boolean
+          joined_date: string | null
           language_code: string | null
           last_ip: string | null
           last_name: string | null
@@ -419,6 +424,7 @@ export type Database = {
           refer_bonus_paid: boolean
           refer_code: string
           refer_count: number
+          refer_stage: number
           referrer_tg_id: number | null
           suspend_reason: string | null
           tg_id: number
@@ -434,11 +440,16 @@ export type Database = {
           best_score?: number
           coins?: number
           created_at?: string
+          day1_ads?: number
+          day1_date?: string | null
+          day2_ads?: number
+          day2_date?: string | null
           device_fingerprint?: string | null
           first_name?: string | null
           game_level?: number
           id?: string
           is_suspended?: boolean
+          joined_date?: string | null
           language_code?: string | null
           last_ip?: string | null
           last_name?: string | null
@@ -448,6 +459,7 @@ export type Database = {
           refer_bonus_paid?: boolean
           refer_code: string
           refer_count?: number
+          refer_stage?: number
           referrer_tg_id?: number | null
           suspend_reason?: string | null
           tg_id: number
@@ -463,11 +475,16 @@ export type Database = {
           best_score?: number
           coins?: number
           created_at?: string
+          day1_ads?: number
+          day1_date?: string | null
+          day2_ads?: number
+          day2_date?: string | null
           device_fingerprint?: string | null
           first_name?: string | null
           game_level?: number
           id?: string
           is_suspended?: boolean
+          joined_date?: string | null
           language_code?: string | null
           last_ip?: string | null
           last_name?: string | null
@@ -477,6 +494,7 @@ export type Database = {
           refer_bonus_paid?: boolean
           refer_code?: string
           refer_count?: number
+          refer_stage?: number
           referrer_tg_id?: number | null
           suspend_reason?: string | null
           tg_id?: number
@@ -763,6 +781,10 @@ export type Database = {
         Returns: number
       }
       maybe_verify_referral: {
+        Args: { p_referee_tg_id: number }
+        Returns: undefined
+      }
+      progress_referral: {
         Args: { p_referee_tg_id: number }
         Returns: undefined
       }

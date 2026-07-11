@@ -101,8 +101,8 @@ async function handleStart(
     `🌟 <b>What you can do:</b>\n` +
     `🚀 Play fun rocket games\n` +
     `📺 Watch ads & earn coins\n` +
-    `👥 Invite friends — get 150 coins each\n` +
-    `💰 Withdraw to TON / USDT (BEP20)\n\n` +
+    `👥 Invite friends — earn up to 150 coins per verified refer\n` +
+    `💵 Withdraw to USDT (BEP20)\n\n` +
     `🔥 Tap <b>Open AstroBlitz</b> to launch! 👇`;
 
   // Inline keyboard — use url for t.me/<bot>/<short_app> so it opens the mini app

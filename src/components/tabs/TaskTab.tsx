@@ -4,7 +4,7 @@ import { listTasks, completeTask } from "@/lib/tasks.functions";
 import { listChallenges, claimChallenge } from "@/lib/challenges.functions";
 import { getLeaderboard } from "@/lib/leaderboard.functions";
 
-type Task = { id: string; title: string; description: string | null; reward: number; url: string | null; kind: string; task_type?: string | null; channel_username?: string | null; completed: boolean };
+type Task = { id: string; title: string; description: string | null; reward: number; url: string | null; kind: string; task_type?: string | null; channel_username?: string | null; icon_url?: string | null; completed: boolean };
 type Challenge = { id: string; title: string; description: string | null; goal: number; reward: number; progress: number; claimed: boolean; period: string; kind: string };
 type Leader = { tg_id: number; first_name: string | null; username: string | null; coins: number };
 type Category = "main" | "partner" | "community";

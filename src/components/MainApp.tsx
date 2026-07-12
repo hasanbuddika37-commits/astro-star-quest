@@ -16,13 +16,17 @@ type Props = { initData: string; profile: Profile; onProfile: (p: Profile) => vo
 
 export default function MainApp({ initData, profile, onProfile, isAdmin = false }: Props) {
   const [tab, setTab] = useState<TabId>("home");
+  const [showVpnHint, setShowVpnHint] = useState(false);
 
-  // Interstitial loop every 60–70s, but NEVER while the Game tab is open.
+  // Auto interstitial (Adsgram only) — runs ONLY while Home tab is open.
   useEffect(() => {
-    if (tab === "game") return;
+    if (tab !== "home") return;
     let cancelled = false;
+    let vpnHinted = false;
     const showOnce = () => {
-      showAd("adsgram", { blocks: ["int-34544"] }, "interstitial").catch(() => {});
+      showAd("adsgram", { blocks: ["int-34544"] }, "interstitial").catch(() => {
+        if (!vpnHinted) { vpnHinted = true; setShowVpnHint(true); }
+      });
     };
     const firstT = setTimeout(showOnce, 1500 + Math.random() * 1500);
     let loopT: ReturnType<typeof setTimeout>;
@@ -57,6 +61,20 @@ export default function MainApp({ initData, profile, onProfile, isAdmin = false 
         {tab === "admin" && isAdmin && <AdminLauncher />}
       </main>
       <BottomNav tab={tab} onTab={setTab} isAdmin={isAdmin} />
+      {showVpnHint && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={() => setShowVpnHint(false)}>
+          <div className="max-w-sm rounded-2xl border border-border bg-card p-5 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-4xl">🌐</div>
+            <h3 className="mt-2 text-lg font-extrabold">No ads available</h3>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Ads not loading in your region. Please <b>turn on a VPN</b> (try Singapore, USA or Germany) and reopen the app to keep earning.
+            </p>
+            <button onClick={() => setShowVpnHint(false)} className="mt-4 w-full rounded-xl px-4 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

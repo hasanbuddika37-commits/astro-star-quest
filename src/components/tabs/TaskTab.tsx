@@ -4,7 +4,7 @@ import { listTasks, completeTask } from "@/lib/tasks.functions";
 import { listChallenges, claimChallenge } from "@/lib/challenges.functions";
 import { getLeaderboard } from "@/lib/leaderboard.functions";
 
-type Task = { id: string; title: string; description: string | null; reward: number; url: string | null; kind: string; task_type?: string | null; channel_username?: string | null; completed: boolean };
+type Task = { id: string; title: string; description: string | null; reward: number; url: string | null; kind: string; task_type?: string | null; channel_username?: string | null; icon_url?: string | null; completed: boolean };
 type Challenge = { id: string; title: string; description: string | null; goal: number; reward: number; progress: number; claimed: boolean; period: string; kind: string };
 type Leader = { tg_id: number; first_name: string | null; username: string | null; coins: number };
 type Category = "main" | "partner" | "community";
@@ -77,6 +77,11 @@ export default function TaskTab({ initData, onCoins }: { initData: string; onCoi
             {tasks.map((t) => (
               <div key={t.id} className="rounded-2xl border border-border bg-card/70 p-4">
                 <div className="flex items-start justify-between gap-3">
+                  {t.icon_url ? (
+                    <img src={t.icon_url} alt="" className="h-10 w-10 rounded-xl object-cover border border-border shrink-0" onError={(e) => (e.currentTarget.style.display = "none")} />
+                  ) : (
+                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-background border border-border text-lg shrink-0">✅</div>
+                  )}
                   <div className="flex-1">
                     <p className="text-sm font-bold">
                       {t.title}
@@ -99,33 +104,48 @@ export default function TaskTab({ initData, onCoins }: { initData: string; onCoi
       )}
 
       {tab === "challenges" && (
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 space-y-4">
           {chs.length === 0 && <Empty text="No challenges yet." />}
-          {chs.map((c) => {
-            const pct = Math.min(100, (c.progress / c.goal) * 100);
-            const ready = c.progress >= c.goal && !c.claimed;
+          {(["daily", "weekly"] as const).map((period) => {
+            const group = chs.filter((c) => c.period === period);
+            if (group.length === 0) return null;
             return (
-              <div key={c.id} className="rounded-2xl border border-border bg-card/70 p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-bold">{c.title} <span className="text-[10px] text-muted-foreground">({c.period})</span></p>
-                    <p className="text-xs text-muted-foreground">{c.description}</p>
-                  </div>
-                  {c.claimed ? (
-                    <span className="rounded-lg bg-green-500/20 px-2 py-1 text-[10px] font-bold text-green-300">Claimed</span>
-                  ) : ready ? (
-                    <button onClick={() => claimCh(c)} className="rounded-xl px-3 py-1.5 text-xs font-bold text-primary-foreground" style={{ background: "var(--gradient-blitz)" }}>
-                      Claim +{c.reward}
-                    </button>
-                  ) : (
-                    <span className="text-xs font-bold text-gold">+{c.reward}</span>
-                  )}
+              <section key={period}>
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <span>{period === "daily" ? "☀️" : "🗓️"}</span>
+                  <span className="capitalize">{period} Challenges</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">({group.length})</span>
+                </h3>
+                <div className="space-y-2">
+                  {group.map((c) => {
+                    const pct = Math.min(100, (c.progress / c.goal) * 100);
+                    const ready = c.progress >= c.goal && !c.claimed;
+                    return (
+                      <div key={c.id} className="rounded-2xl border border-border bg-card/70 p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm font-bold">{c.title}</p>
+                            <p className="text-xs text-muted-foreground">{c.description}</p>
+                          </div>
+                          {c.claimed ? (
+                            <span className="rounded-lg bg-green-500/20 px-2 py-1 text-[10px] font-bold text-green-300">Claimed</span>
+                          ) : ready ? (
+                            <button onClick={() => claimCh(c)} className="rounded-xl px-3 py-1.5 text-xs font-bold text-primary-foreground" style={{ background: "var(--gradient-blitz)" }}>
+                              Claim +{c.reward}
+                            </button>
+                          ) : (
+                            <span className="text-xs font-bold text-gold">+{c.reward}</span>
+                          )}
+                        </div>
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
+                          <div className="h-full" style={{ width: `${pct}%`, background: "var(--gradient-primary)" }} />
+                        </div>
+                        <p className="mt-1 text-[10px] text-muted-foreground">{c.progress} / {c.goal}</p>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
-                  <div className="h-full" style={{ width: `${pct}%`, background: "var(--gradient-primary)" }} />
-                </div>
-                <p className="mt-1 text-[10px] text-muted-foreground">{c.progress} / {c.goal}</p>
-              </div>
+              </section>
             );
           })}
         </div>

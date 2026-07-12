@@ -595,6 +595,7 @@ export type Database = {
           channel_username: string | null
           created_at: string
           description: string | null
+          icon_url: string | null
           id: string
           is_active: boolean
           kind: string
@@ -611,6 +612,7 @@ export type Database = {
           channel_username?: string | null
           created_at?: string
           description?: string | null
+          icon_url?: string | null
           id?: string
           is_active?: boolean
           kind?: string
@@ -627,6 +629,7 @@ export type Database = {
           channel_username?: string | null
           created_at?: string
           description?: string | null
+          icon_url?: string | null
           id?: string
           is_active?: boolean
           kind?: string

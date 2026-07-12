@@ -183,7 +183,7 @@ function Tasks({ token }: { token: string }) {
   const save = useServerFn(adminSaveTask);
   const del = useServerFn(adminDeleteTask);
   const [rows, setRows] = useState<Awaited<ReturnType<typeof adminListTasks>>>([]);
-  const empty = { title: "", description: "", reward: 100, url: "", kind: "link", is_active: true, sort_order: 0, task_type: "main" as "main" | "partner" | "community", channel_username: "", verify_via_join: false };
+  const empty = { title: "", description: "", reward: 100, url: "", kind: "link", is_active: true, sort_order: 0, task_type: "main" as "main" | "partner" | "community", channel_username: "", verify_via_join: false, icon_url: "" };
   const [f, setF] = useState<typeof empty & { id?: string }>(empty);
   const [filterCat, setFilterCat] = useState<"all" | "main" | "partner" | "community">("all");
   async function load() { setRows(await list({ data: { token } })); }
@@ -202,15 +202,20 @@ function Tasks({ token }: { token: string }) {
           ))}
         </div>
         {filtered.map((t) => {
-          const tt = (t as unknown as { task_type?: string; channel_username?: string | null; verify_via_join?: boolean });
+          const tt = (t as unknown as { task_type?: string; channel_username?: string | null; verify_via_join?: boolean; icon_url?: string | null });
           return (
             <div key={t.id} className="rounded-xl border border-border bg-card/70 p-3 text-xs">
-              <p className="font-bold">{t.title} <span className="text-gold">+{t.reward}</span> <span className="text-[10px] text-muted-foreground">[{tt.task_type ?? "main"}]</span></p>
-              <p className="text-muted-foreground">{t.description}</p>
-              <p className="font-mono break-all">{t.url}</p>
-              {tt.channel_username && <p className="text-cyan-accent">🔗 join-verify: {tt.channel_username}</p>}
+              <div className="flex items-start gap-2">
+                {tt.icon_url && <img src={tt.icon_url} alt="" className="h-8 w-8 rounded-lg object-cover border border-border" onError={(e) => (e.currentTarget.style.display = "none")} />}
+                <div className="flex-1">
+                  <p className="font-bold">{t.title} <span className="text-gold">+{t.reward}</span> <span className="text-[10px] text-muted-foreground">[{tt.task_type ?? "main"}]</span></p>
+                  <p className="text-muted-foreground">{t.description}</p>
+                  <p className="font-mono break-all">{t.url}</p>
+                  {tt.channel_username && <p className="text-cyan-accent">🔗 join-verify: {tt.channel_username}</p>}
+                </div>
+              </div>
               <div className="mt-2 flex gap-2">
-                <button onClick={() => setF({ id: t.id, title: t.title, description: t.description ?? "", reward: Number(t.reward), url: t.url ?? "", kind: t.kind, is_active: t.is_active, sort_order: t.sort_order, task_type: (tt.task_type as "main") ?? "main", channel_username: tt.channel_username ?? "", verify_via_join: tt.verify_via_join ?? false })} className="rounded-lg border border-border px-2 py-1">Edit</button>
+                <button onClick={() => setF({ id: t.id, title: t.title, description: t.description ?? "", reward: Number(t.reward), url: t.url ?? "", kind: t.kind, is_active: t.is_active, sort_order: t.sort_order, task_type: (tt.task_type as "main") ?? "main", channel_username: tt.channel_username ?? "", verify_via_join: tt.verify_via_join ?? false, icon_url: tt.icon_url ?? "" })} className="rounded-lg border border-border px-2 py-1">Edit</button>
                 <button onClick={async () => { if (confirm("Delete?")) { await del({ data: { token, id: t.id } }); load(); } }} className="rounded-lg bg-destructive px-2 py-1 text-destructive-foreground">Delete</button>
               </div>
             </div>
@@ -230,6 +235,7 @@ function Tasks({ token }: { token: string }) {
         <Field label="Description"><textarea className="w-full bg-background rounded px-2 py-1" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         <Field label="Reward (coins)"><input type="number" className="w-full bg-background rounded px-2 py-1" value={f.reward} onChange={(e) => setF({ ...f, reward: Number(e.target.value) })} /></Field>
         <Field label="URL"><input className="w-full bg-background rounded px-2 py-1" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} /></Field>
+        <Field label="Icon URL (imgbb / any https image)"><input className="w-full bg-background rounded px-2 py-1" value={f.icon_url} onChange={(e) => setF({ ...f, icon_url: e.target.value })} placeholder="https://i.ibb.co/xxxx/icon.png" /></Field>
         <Field label="Kind">
           <select className="w-full bg-background rounded px-2 py-1" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
             <option value="link">link</option>

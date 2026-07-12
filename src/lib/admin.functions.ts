@@ -201,6 +201,7 @@ const TaskSaveSchema = TokenSchema.extend({
   task_type: z.enum(["main", "partner", "community"]).default("main"),
   channel_username: z.string().max(120).optional().or(z.literal("")),
   verify_via_join: z.boolean().default(false),
+  icon_url: z.string().url().optional().or(z.literal("")),
 });
 
 export const adminSaveTask = createServerFn({ method: "POST" })
@@ -216,6 +217,7 @@ export const adminSaveTask = createServerFn({ method: "POST" })
       task_type: data.task_type,
       channel_username: data.channel_username || null,
       verify_via_join: data.verify_via_join,
+      icon_url: data.icon_url || null,
     };
     if (data.id) {
       await supabaseAdmin.from("tasks").update(row as never).eq("id", data.id);

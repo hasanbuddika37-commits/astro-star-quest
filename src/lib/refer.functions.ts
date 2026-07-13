@@ -14,7 +14,7 @@ export const getReferStats = createServerFn({ method: "POST" })
     const r2 = Number(await getSetting("refer_stage2_coins", 75));
     const n1 = Number(await getSetting("refer_stage1_ads", 10));
     const n2 = Number(await getSetting("refer_stage2_ads", 15));
-    const pct = Number(await getSetting("refer_commission_pct", 10));
+    const pct = Number(await getSetting("refer_commission_pct", 5));
 
     const { count: total } = await supabaseAdmin
       .from("profiles")

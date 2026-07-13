@@ -96,7 +96,7 @@ export const claimAdButton = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { requireProfile, creditCoins, getSetting } = await import("./tg-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { progressReferralAndNotify } = await import("./refer-progress.server");
+    const { progressReferralAdAndNotify } = await import("./refer-progress.server");
     const { profile } = await requireProfile(data.initData);
 
     const { data: block } = await supabaseAdmin
@@ -132,7 +132,7 @@ export const claimAdButton = createServerFn({ method: "POST" })
 
     const new_balance = await creditCoins(profile.tg_id, reward, "ad_watch",
       { network: data.network, button: data.button_index });
-    await progressReferralAndNotify(profile.tg_id);
+    await progressReferralAdAndNotify(profile.tg_id);
     return { reward, new_balance };
   });
 

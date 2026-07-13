@@ -27,15 +27,23 @@ async function loadProfile(tgId: number): Promise<ProfileLite | null> {
  * Safe to call from any server function — errors are swallowed.
  */
 export async function progressReferralAndNotify(refereeTgId: number): Promise<void> {
+  return progressReferralAndNotifyInternal(refereeTgId, false);
+}
+
+export async function progressReferralAdAndNotify(refereeTgId: number): Promise<void> {
+  return progressReferralAndNotifyInternal(refereeTgId, true);
+}
+
+async function progressReferralAndNotifyInternal(refereeTgId: number, countAd: boolean): Promise<void> {
   try {
     const before = await loadProfile(refereeTgId);
     if (!before?.referrer_tg_id) {
       // Even without a referrer we call the RPC so stage settles.
-      await supabaseAdmin.rpc("progress_referral", { p_referee_tg_id: refereeTgId });
+      await supabaseAdmin.rpc("progress_referral", { p_referee_tg_id: refereeTgId, p_count_ad: countAd });
       return;
     }
     const prevStage = Number(before.refer_stage ?? 0);
-    await supabaseAdmin.rpc("progress_referral", { p_referee_tg_id: refereeTgId });
+    await supabaseAdmin.rpc("progress_referral", { p_referee_tg_id: refereeTgId, p_count_ad: countAd });
     const after = await loadProfile(refereeTgId);
     if (!after) return;
     const newStage = Number(after.refer_stage ?? 0);

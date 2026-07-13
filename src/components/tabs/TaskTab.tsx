@@ -77,11 +77,7 @@ export default function TaskTab({ initData, onCoins }: { initData: string; onCoi
             {tasks.map((t) => (
               <div key={t.id} className="rounded-2xl border border-border bg-card/70 p-4">
                 <div className="flex items-start justify-between gap-3">
-                  {t.icon_url ? (
-                    <img src={t.icon_url} alt="" className="h-10 w-10 rounded-xl object-cover border border-border shrink-0" onError={(e) => (e.currentTarget.style.display = "none")} />
-                  ) : (
-                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-background border border-border text-lg shrink-0">✅</div>
-                  )}
+                  <TaskIcon title={t.title} iconUrl={t.icon_url} />
                   <div className="flex-1">
                     <p className="text-sm font-bold">
                       {t.title}
@@ -179,4 +175,21 @@ export default function TaskTab({ initData, onCoins }: { initData: string; onCoi
 
 function Empty({ text }: { text: string }) {
   return <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">{text}</div>;
+}
+
+function TaskIcon({ title, iconUrl }: { title: string; iconUrl?: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (!iconUrl || failed) {
+    return <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border bg-background text-lg">✅</div>;
+  }
+  return (
+    <img
+      src={iconUrl}
+      alt={`${title} icon`}
+      className="h-10 w-10 shrink-0 rounded-xl border border-border object-cover"
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
+  );
 }

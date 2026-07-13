@@ -5,12 +5,27 @@ const loaded = new Set<string>();
 
 function loadScript(src: string, attrs?: Record<string, string>): Promise<void> {
   if (loaded.has(src)) return Promise.resolve();
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+  if (existing) {
+    return new Promise<void>((resolve, reject) => {
+      if (existing.dataset.loaded === "true") {
+        loaded.add(src);
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => { existing.dataset.loaded = "true"; loaded.add(src); resolve(); }, { once: true });
+      existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      if (document.readyState === "complete") {
+        window.setTimeout(() => { loaded.add(src); resolve(); }, 0);
+      }
+    });
+  }
   return new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
     s.src = src;
     s.async = true;
     if (attrs) for (const [k, v] of Object.entries(attrs)) s.setAttribute(k, v);
-    s.onload = () => { loaded.add(src); resolve(); };
+    s.onload = () => { s.dataset.loaded = "true"; loaded.add(src); resolve(); };
     s.onerror = () => reject(new Error(`Failed to load ${src}`));
     document.head.appendChild(s);
   });
@@ -22,8 +37,10 @@ declare global {
     show_11115938?: () => Promise<void>;
     showGiga?: (opts?: unknown) => Promise<void>;
     Taddy?: {
-      showAd?: (opts?: { pubId?: string }) => Promise<void>;
-      show?: (opts?: { pubId?: string }) => Promise<void>;
+      init?: (pubId: string, opts?: Record<string, unknown>) => Promise<void> | void;
+      ready?: () => void;
+      isInit?: boolean;
+      ads?: () => { interstitial?: (opts?: { payload?: unknown; onClosed?: () => void }) => Promise<boolean> };
     };
   }
 }
@@ -68,9 +85,16 @@ async function showTaddy(extra: SdkExtra): Promise<void> {
   const pubId = (extra?.pubId as string) || (extra?.pub_id as string) || "ce8790eb749918b088605145e3626fd9";
   await loadScript("https://sdk.taddy.pro/web/taddy.min.js", { "data-pub-id": pubId });
   const sdk = await waitFor(() => window.Taddy);
-  const showFn = sdk.showAd ?? sdk.show;
-  if (typeof showFn !== "function") throw new Error("Taddy SDK missing showAd()");
-  await showFn.call(sdk, { pubId });
+  if (!sdk.isInit && typeof sdk.init === "function") {
+    await sdk.init(pubId, { debug: false });
+  }
+  sdk.ready?.();
+  const ads = sdk.ads?.();
+  if (!ads?.interstitial) throw new Error("Taddy SDK is not ready");
+  const shown = await ads.interstitial({
+    payload: (extra?.payload as unknown) ?? { placement: "watch_ads" },
+  });
+  if (!shown) throw new Error("No Taddy ad available");
 }
 
 /**

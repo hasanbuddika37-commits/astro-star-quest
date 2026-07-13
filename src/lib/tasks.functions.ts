@@ -19,7 +19,25 @@ export const listTasks = createServerFn({ method: "POST" })
     const { data: done } = await supabaseAdmin
       .from("task_completions").select("task_id").eq("tg_id", profile.tg_id);
     const doneSet = new Set((done ?? []).map((d) => d.task_id));
-    return (tasks ?? []).map((t) => ({ ...t, completed: doneSet.has(t.id) }));
+    const isDirectImage = (url: string) => /\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(url);
+    const resolveIconUrl = async (url: string | null): Promise<string | null> => {
+      if (!url) return null;
+      if (isDirectImage(url)) return url;
+      try {
+        const res = await fetch(url, { headers: { "user-agent": "AstroBlitzBot/1.0" } });
+        const html = await res.text();
+        const match = html.match(/<meta\s+(?:property|name)=["'](?:og:image|twitter:image)["']\s+content=["']([^"']+)["']/i)
+          ?? html.match(/<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["'](?:og:image|twitter:image)["']/i);
+        return match?.[1] ?? url;
+      } catch {
+        return url;
+      }
+    };
+    return Promise.all((tasks ?? []).map(async (t) => ({
+      ...t,
+      icon_url: await resolveIconUrl((t as { icon_url?: string | null }).icon_url ?? null),
+      completed: doneSet.has(t.id),
+    })));
   });
 
 export const completeTask = createServerFn({ method: "POST" })

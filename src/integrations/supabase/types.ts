@@ -787,12 +787,10 @@ export type Database = {
         Args: { p_referee_tg_id: number }
         Returns: undefined
       }
-      progress_referral:
-        | { Args: { p_referee_tg_id: number }; Returns: undefined }
-        | {
-            Args: { p_count_ad?: boolean; p_referee_tg_id: number }
-            Returns: undefined
-          }
+      progress_referral: {
+        Args: { p_count_ad?: boolean; p_referee_tg_id: number }
+        Returns: undefined
+      }
       validate_profile_balance: {
         Args: { p_context?: string; p_tg_id: number }
         Returns: boolean

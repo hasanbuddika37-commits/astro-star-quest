@@ -27,14 +27,14 @@ async function loadProfile(tgId: number): Promise<ProfileLite | null> {
  * Safe to call from any server function — errors are swallowed.
  */
 export async function progressReferralAndNotify(refereeTgId: number): Promise<void> {
-  return progressReferralAndNotify(refereeTgId, false);
+  return progressReferralAndNotifyInternal(refereeTgId, false);
 }
 
 export async function progressReferralAdAndNotify(refereeTgId: number): Promise<void> {
-  return progressReferralAndNotify(refereeTgId, true);
+  return progressReferralAndNotifyInternal(refereeTgId, true);
 }
 
-async function progressReferralAndNotify(refereeTgId: number, countAd: boolean): Promise<void> {
+async function progressReferralAndNotifyInternal(refereeTgId: number, countAd: boolean): Promise<void> {
   try {
     const before = await loadProfile(refereeTgId);
     if (!before?.referrer_tg_id) {

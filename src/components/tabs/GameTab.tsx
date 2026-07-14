@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { finishGame } from "@/lib/game.functions";
-import { claimAd, getRandomAdNetwork } from "@/lib/ads.functions";
+import { claimAd, getRandomAdNetwork, getAdNetworks } from "@/lib/ads.functions";
 import { showAd } from "@/lib/adsdk";
 import type { Profile } from "../MainApp";
+
 
 type Props = { initData: string; profile: Profile; onCoins: (c: number) => void };
 type Obstacle = { x: number; gapY: number; gap: number; passed?: boolean };
@@ -22,6 +23,8 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
   const finish = useServerFn(finishGame);
   const watchAdFn = useServerFn(claimAd);
   const pickAd = useServerFn(getRandomAdNetwork);
+  const listNets = useServerFn(getAdNetworks);
+
   const [reviveUsed, setReviveUsed] = useState(false);
   const [busy, setBusy] = useState<null | "play" | "revive" | "claim">(null);
   const [error, setError] = useState<string | null>(null);
@@ -113,15 +116,34 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
     return () => { c.removeEventListener("pointerdown", flap); cancelAnimationFrame(raf); };
   }, [status]);
 
-  // Show an ad and resolve true on completion, false on failure
+  // Pick TWO different networks weighted toward adsgram, race them, return the
+  // first that plays. Adsgram is inserted with high weight so it wins most tosses.
+  async function pickTwoNetworks(): Promise<{ network: string; sdk_extra: unknown }[]> {
+    const all = await listNets({ data: { initData } }).catch(() => ({ networks: [] as { network: string; sdk_extra: unknown }[] }));
+    const nets = all.networks ?? [];
+    if (nets.length === 0) return [];
+    if (nets.length === 1) return [nets[0]];
+    const adsgram = nets.find((n) => n.network === "adsgram");
+    const others = nets.filter((n) => n.network !== "adsgram");
+    // 70% chance adsgram is one of the two, then pick a random second network.
+    const primary = adsgram && Math.random() < 0.7 ? adsgram : nets[Math.floor(Math.random() * nets.length)];
+    const pool = nets.filter((n) => n.network !== primary.network);
+    const secondary = pool[Math.floor(Math.random() * pool.length)];
+    return [primary, secondary].filter(Boolean) as { network: string; sdk_extra: unknown }[];
+  }
+
+  // Show an ad and resolve true on completion, false on failure.
+  // Runs 2 networks in parallel and resolves as soon as one plays; the other's
+  // load is not user-visible if it loses the race.
   async function tryShowRewardAd(): Promise<boolean> {
     try {
-      const net = await pickAd({ data: { initData } });
-      if (!net?.network) return false;
-      await showAd(net.network, net.sdk_extra as never, "reward");
+      const picks = await pickTwoNetworks();
+      if (picks.length === 0) return false;
+      await Promise.any(picks.map((p) => showAd(p.network, p.sdk_extra as never, "reward")));
       return true;
     } catch { return false; }
   }
+
 
   async function onPlay() {
     if (busy) return;

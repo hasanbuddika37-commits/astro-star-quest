@@ -14,10 +14,11 @@ export const Route = createFileRoute("/")({
       { title: "AstroBlitz — Play • Earn • Withdraw" },
       {
         name: "description",
-        content: "Tap to fly, complete tasks and earn TON / USDT rewards on AstroBlitz.",
+        content: "Tap to fly, complete tasks and earn USDT rewards on AstroBlitz.",
       },
     ],
   }),
+
   component: Index,
 });
 

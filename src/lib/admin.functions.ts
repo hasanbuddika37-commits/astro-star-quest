@@ -112,15 +112,14 @@ export const adminApproveWithdrawal = createServerFn({ method: "POST" })
     let payChId = (sm.payment_chat_id as string) ?? "";
     if (!payChId && payCh) payChId = payCh.replace(/^https?:\/\/t\.me\//, "@");
     const miniApp = (sm.mini_app_url as string) ?? "";
-    const txUrl = w.currency === "TON"
-      ? `https://tonscan.org/tx/${data.tx_id}`
-      : `https://bscscan.com/tx/${data.tx_id}`;
+    const txUrl = `https://bscscan.com/tx/${data.tx_id}`;
+
     try {
       await sendMessage({
         chat_id: w.tg_id, parse_mode: "HTML",
         text:
           `✅🎉 <b>Withdraw approved!</b> 🚀\n\n` +
-          `💎 Currency: <b>${w.currency === "TON" ? "TON" : "USDT (BEP20)"}</b>\n` +
+          `💎 Currency: <b>USDT (BEP20)</b>\n` +
           `📤 Net sent: <code>${Number(w.net_amount).toFixed(6)}</code>\n` +
           `🪙 New balance: <code>${Number(prof?.coins ?? 0).toLocaleString()}</code> coins\n` +
           `📊 Status: <b>success</b> ✨\n` +
@@ -139,7 +138,7 @@ export const adminApproveWithdrawal = createServerFn({ method: "POST" })
           text:
             `💸✅ <b>Payment processed</b> 🎉\n\n` +
             `👤 User: <code>${w.tg_id}</code>\n` +
-            `💰 Amount: <b>${Number(w.net_amount).toFixed(6)} ${w.currency === "TON" ? "TON" : "USDT (BEP20)"}</b>\n` +
+            `💰 Amount: <b>${Number(w.net_amount).toFixed(6)} USDT (BEP20)</b>\n` +
             `🔗 TX: <code>${data.tx_id}</code>`,
           reply_markup: { inline_keyboard: [[
             { text: "🔎 View transaction", url: txUrl },

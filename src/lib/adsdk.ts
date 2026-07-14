@@ -42,8 +42,15 @@ declare global {
       isInit?: boolean;
       ads?: () => { interstitial?: (opts?: { payload?: unknown; onClosed?: () => void }) => Promise<boolean> };
     };
+    TowerAds?: new (opts: {
+      apiKey: string;
+      placementId: string;
+      onRewardEarned?: (reward: unknown) => void;
+      onError?: (err: unknown) => void;
+    }) => { loadAndShow: () => Promise<unknown> };
   }
 }
+
 
 async function waitFor<T>(get: () => T | undefined, ms = 8000, step = 100): Promise<T> {
   const t0 = Date.now();

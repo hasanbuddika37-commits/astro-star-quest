@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { getAdSlots, claimAdButton } from "@/lib/ads.functions";
-import { showAd } from "@/lib/adsdk";
+import { getAdSlots, claimAdButton, getAdNetworks } from "@/lib/ads.functions";
+import { showAdWithFallback } from "@/lib/adsdk";
 
 type CardBtn = { index: number; ready: boolean; unlocks_in_ms: number };
 type Card = {
+
   network: string;
   label: string;
   logo_url: string | null;
@@ -20,16 +21,21 @@ const NETWORK_LOGOS: Record<string, string> = {
   adsgram: "https://adsgram.ai/favicon.ico",
   monetag: "https://monetag.com/favicon.ico",
   gigapub: "https://gigapub.tech/favicon.ico",
+  taddy: "https://taddy.pro/favicon.ico",
+  uslads: "https://uslads.com/favicon.ico",
 };
+
 
 export default function WatchTab({ initData, onCoins }: { initData: string; onCoins: (c: number) => void }) {
   const load = useServerFn(getAdSlots);
   const claim = useServerFn(claimAdButton);
+  const listNets = useServerFn(getAdNetworks);
   const [cards, setCards] = useState<Card[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState<{ net: string; idx: number } | null>(null);
   const [lock, setLock] = useState<{ net: string; until: number } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
 
   async function refresh() {
     try {
@@ -60,8 +66,17 @@ export default function WatchTab({ initData, onCoins }: { initData: string; onCo
     setBusy({ net: card.network, idx: btn.index });
     setMsg(null);
     try {
-      // Ad MUST play (strict). If it throws, do NOT claim.
-      await showAd(card.network, card.sdk_extra, "reward");
+      // Try picked network. If it fails, fall back to adsgram, then any other enabled network.
+      const all = await listNets({ data: { initData } }).catch(() => ({ networks: [] as { network: string; sdk_extra: unknown }[] }));
+      const others = (all.networks ?? []).filter((n) => n.network !== card.network);
+      const adsgram = others.find((n) => n.network === "adsgram");
+      const rest = others.filter((n) => n.network !== "adsgram");
+      const fallbacks = [adsgram, ...rest].filter(Boolean) as { network: string; sdk_extra: unknown }[];
+      await showAdWithFallback(
+        { network: card.network, sdk_extra: card.sdk_extra ?? undefined },
+        fallbacks.map((n) => ({ network: n.network, sdk_extra: (n.sdk_extra as Record<string, unknown>) ?? undefined })),
+        "reward",
+      );
       const r = await claim({ data: { initData, network: card.network, button_index: btn.index } });
       onCoins(r.new_balance);
       setMsg(`+${r.reward} coins 🎉`);
@@ -75,6 +90,7 @@ export default function WatchTab({ initData, onCoins }: { initData: string; onCo
       setBusy(null);
     }
   }
+
 
   return (
     <div>

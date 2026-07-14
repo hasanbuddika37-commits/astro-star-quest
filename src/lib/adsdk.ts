@@ -42,8 +42,15 @@ declare global {
       isInit?: boolean;
       ads?: () => { interstitial?: (opts?: { payload?: unknown; onClosed?: () => void }) => Promise<boolean> };
     };
+    TowerAds?: new (opts: {
+      apiKey: string;
+      placementId: string;
+      onRewardEarned?: (reward: unknown) => void;
+      onError?: (err: unknown) => void;
+    }) => { loadAndShow: () => Promise<unknown> };
   }
 }
+
 
 async function waitFor<T>(get: () => T | undefined, ms = 8000, step = 100): Promise<T> {
   const t0 = Date.now();
@@ -97,6 +104,27 @@ async function showTaddy(extra: SdkExtra): Promise<void> {
   if (!shown) throw new Error("No Taddy ad available");
 }
 
+async function showUslAds(extra: SdkExtra): Promise<void> {
+  const apiKey = (extra?.apiKey as string) || (extra?.api_key as string) || "16613da4b1290d7c3146e4a4e08157db";
+  const placementId = (extra?.placementId as string) || (extra?.placement_id as string) || "plc_42ad50715d8b8aaa";
+  const src = (extra?.src as string) || "https://uslads.com/sdk/tower-ads-v4.js";
+  await loadScript(src);
+  const Ctor = await waitFor(() => window.TowerAds);
+  await new Promise<void>((resolve, reject) => {
+    try {
+      const inst = new Ctor({
+        apiKey,
+        placementId,
+        onRewardEarned: () => resolve(),
+        onError: (err) => reject(err instanceof Error ? err : new Error(String(err ?? "USL Ads error"))),
+      });
+      inst.loadAndShow().catch((e) => reject(e instanceof Error ? e : new Error(String(e))));
+    } catch (e) {
+      reject(e instanceof Error ? e : new Error(String(e)));
+    }
+  });
+}
+
 /**
  * Show an ad. Resolves only on confirmed completion. Throws on failure.
  */
@@ -119,8 +147,37 @@ export async function showAd(
   if (network === "monetag") { await showMonetag(extra); return; }
   if (network === "gigapub") { await showGigapub(extra); return; }
   if (network === "taddy")   { await showTaddy(extra);   return; }
+  if (network === "uslads")  { await showUslAds(extra);  return; }
   throw new Error(`Unknown ad network: ${network}`);
 }
+
+/**
+ * Try to show an ad from `primary`. If it fails, try each fallback network in order.
+ * Resolves with the network that actually played, or throws if none succeed.
+ */
+export async function showAdWithFallback(
+  primary: { network: string; sdk_extra?: SdkExtra },
+  fallbacks: { network: string; sdk_extra?: SdkExtra }[] = [],
+  mode: "interstitial" | "reward" = "reward",
+): Promise<string> {
+  const seen = new Set<string>();
+  const order = [primary, ...fallbacks].filter((n) => {
+    if (!n?.network || seen.has(n.network)) return false;
+    seen.add(n.network);
+    return true;
+  });
+  let lastErr: unknown = null;
+  for (const n of order) {
+    try {
+      await showAd(n.network, n.sdk_extra, mode);
+      return n.network;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("No ad available");
+}
+
 
 export function pickRandomNetwork(
   networks: { network: string; sdk_extra?: SdkExtra }[],

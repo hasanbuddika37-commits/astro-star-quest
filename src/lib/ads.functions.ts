@@ -149,3 +149,16 @@ export const getRandomAdNetwork = createServerFn({ method: "POST" })
     const pick = rows[Math.floor(Math.random() * rows.length)];
     return { network: pick.network, sdk_extra: pick.sdk_extra };
   });
+
+// All enabled ad networks (for client-side fallback + game weighting)
+export const getAdNetworks = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ initData: z.string().min(10) }).parse(d))
+  .handler(async ({ data }) => {
+    const { requireProfile } = await import("./tg-auth.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await requireProfile(data.initData);
+    const { data: rows } = await supabaseAdmin
+      .from("ad_blocks").select("network, sdk_extra").eq("is_enabled", true);
+    return { networks: (rows ?? []).map((r) => ({ network: r.network, sdk_extra: r.sdk_extra })) };
+  });
+

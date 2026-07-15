@@ -406,11 +406,13 @@ function Users({ token }: { token: string }) {
   const detail = useServerFn(adminGetUserDetail);
   const suspend = useServerFn(adminSuspendUser);
   const adjust = useServerFn(adminAdjustBalance);
+  const fixBal = useServerFn(adminFixBalance);
   const [rows, setRows] = useState<Awaited<ReturnType<typeof adminListUsers>>["rows"]>([]);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "suspended">("all");
   const [sel, setSel] = useState<Awaited<ReturnType<typeof adminGetUserDetail>> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [actTab, setActTab] = useState<"ledger" | "ads" | "games" | "withdrawals" | "tasks" | "refers" | "challenges" | "tickets" | "actions">("ledger");
 
   async function load() {
     setBusy(true);
@@ -423,7 +425,7 @@ function Users({ token }: { token: string }) {
 
   async function open(tgId: number) {
     const r = await detail({ data: { token, tg_id: tgId } });
-    setSel(r);
+    setSel(r); setActTab("ledger");
   }
   async function toggleSuspend(tgId: number, on: boolean) {
     const reason = on ? prompt("Reason:") ?? undefined : undefined;
@@ -436,6 +438,12 @@ function Users({ token }: { token: string }) {
     if (!v) return;
     const note = prompt("Note (optional):") ?? "";
     await adjust({ data: { token, tg_id: tgId, delta: Number(v), note } });
+    await open(tgId); await load();
+  }
+  async function doFix(tgId: number) {
+    if (!confirm("Reset the coin balance to match the activity ledger?")) return;
+    const r = await fixBal({ data: { token, tg_id: tgId } });
+    alert(`Adjusted by ${r.adjusted}. New balance: ${r.new_balance}`);
     await open(tgId); await load();
   }
 
@@ -467,39 +475,102 @@ function Users({ token }: { token: string }) {
       </div>
       <div>
         {!sel && <p className="text-xs text-muted-foreground">Select a user.</p>}
-        {sel?.profile && (() => { const sp = sel.profile!; return (
-          <div className="rounded-2xl border border-border bg-card/70 p-3 text-xs space-y-2">
-            <div className="flex justify-between">
-              <div>
-                <p className="font-bold text-sm">{sp.first_name} @{sp.username}</p>
-                <p className="text-muted-foreground">🆔 {sp.tg_id}</p>
+        {sel?.profile && (() => {
+          const sp = sel.profile!;
+          const mismatch = Math.abs(Number(sp.coins) - sel.expected_balance) > 0.01;
+          return (
+            <div className="rounded-2xl border border-border bg-card/70 p-3 text-xs space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-bold text-sm">{sp.first_name} {sp.username && <span className="text-muted-foreground">@{sp.username}</span>}</p>
+                  <p className="text-muted-foreground">🆔 {sp.tg_id} • L{sp.game_level ?? 1} • Joined {new Date(sp.created_at).toLocaleDateString()}</p>
+                </div>
+                {sp.is_suspended && <span className="rounded-md bg-destructive/20 text-destructive px-2 py-0.5 text-[10px] font-bold">🚫 Suspended</span>}
               </div>
-              <span className="text-gold font-bold">{Number(sp.coins).toLocaleString()} coins</span>
-            </div>
-            <p className="text-muted-foreground">Expected from ledger: <b>{Number(sel.expected_balance).toLocaleString()}</b> {Math.abs(Number(sp.coins) - sel.expected_balance) > 0.01 && <span className="text-destructive">⚠ mismatch</span>}</p>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => doAdjust(sp.tg_id)} className="rounded-lg bg-primary px-2 py-1 text-primary-foreground">± Balance</button>
-              <button onClick={() => toggleSuspend(sp.tg_id, !sp.is_suspended)} className={`rounded-lg px-2 py-1 text-white ${sp.is_suspended ? "bg-green-600" : "bg-destructive"}`}>
-                {sp.is_suspended ? "Un-suspend" : "Suspend"}
-              </button>
-            </div>
-            <div>
-              <p className="font-bold mt-2">Recent ledger</p>
-              <div className="max-h-32 overflow-y-auto">
-                {sel.ledger.slice(0, 20).map((l) => (
-                  <p key={l.id} className="text-[10px] font-mono">{new Date(l.created_at).toLocaleString()} {Number(l.delta) >= 0 ? "+" : ""}{l.delta} <span className="text-muted-foreground">{l.reason}</span></p>
+
+              <div className="grid grid-cols-2 gap-2">
+                <BalCard label="Balance" value={`${Number(sp.coins).toLocaleString()} 🪙`} accent="text-gold" />
+                <BalCard label="Ledger sum" value={`${Number(sel.expected_balance).toLocaleString()} 🪙`} accent={mismatch ? "text-destructive" : "text-green-300"} />
+                <BalCard label="Ads watched" value={sp.ads_watched ?? 0} />
+                <BalCard label="Verified refers" value={sp.verified_refer_count ?? 0} />
+                <BalCard label="Total withdraw" value={`$${Number(sp.total_withdraw ?? 0).toFixed(4)}`} />
+                <BalCard label="Game level" value={sp.game_level ?? 1} />
+              </div>
+
+              {mismatch && (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-2 text-[11px] text-destructive">
+                  ⚠ Balance and ledger don't match (diff {(Number(sp.coins) - sel.expected_balance).toFixed(4)}).
+                  <button onClick={() => doFix(sp.tg_id)} className="ml-2 rounded-md bg-destructive px-2 py-0.5 text-destructive-foreground font-bold">Fix now</button>
+                </div>
+              )}
+              {sp.is_suspended && sp.suspend_reason && (
+                <div className="rounded-lg bg-destructive/5 border border-destructive/30 p-2 text-[11px] text-destructive">{sp.suspend_reason}</div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => doAdjust(sp.tg_id)} className="rounded-lg bg-primary px-2 py-1 text-primary-foreground">± Balance</button>
+                <button onClick={() => doFix(sp.tg_id)} className="rounded-lg border border-border px-2 py-1">🔧 Fix balance</button>
+                <button onClick={() => toggleSuspend(sp.tg_id, !sp.is_suspended)} className={`rounded-lg px-2 py-1 text-white ${sp.is_suspended ? "bg-green-600" : "bg-destructive"}`}>
+                  {sp.is_suspended ? "Un-suspend" : "Suspend"}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1 border-t border-border pt-2">
+                {(["ledger","ads","games","withdrawals","tasks","refers","challenges","tickets","actions"] as const).map((t) => (
+                  <button key={t} onClick={() => setActTab(t)}
+                    className={`rounded-md px-2 py-0.5 text-[10px] font-bold capitalize ${actTab === t ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"}`}>
+                    {t} ({(sel[t] as unknown[]).length})
+                  </button>
                 ))}
               </div>
+
+              <div className="max-h-[50vh] overflow-y-auto space-y-1 text-[10px] font-mono">
+                {actTab === "ledger" && sel.ledger.map((l) => (
+                  <p key={l.id}><span className="text-muted-foreground">{new Date(l.created_at).toLocaleString()}</span> {Number(l.delta) >= 0 ? "+" : ""}{l.delta} <span className="text-cyan-accent">{l.reason}</span> {l.meta && <span className="text-muted-foreground">{JSON.stringify(l.meta)}</span>}</p>
+                ))}
+                {actTab === "ads" && sel.ads.map((a) => (
+                  <p key={a.id}><span className="text-muted-foreground">{new Date(a.created_at).toLocaleString()}</span> {a.slot} • {a.network ?? "-"} • +{a.reward}</p>
+                ))}
+                {actTab === "games" && sel.games.map((g) => (
+                  <p key={g.id}><span className="text-muted-foreground">{new Date(g.created_at).toLocaleString()}</span> L{g.level_reached} • score {g.score} • +{g.coins_earned}</p>
+                ))}
+                {actTab === "withdrawals" && sel.withdrawals.map((w) => (
+                  <p key={w.id}><span className="text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</span> [{w.status}] {w.currency} {Number(w.net_amount).toFixed(6)} • {w.coins} 🪙 {w.tx_id && `• TX ${w.tx_id.slice(0, 12)}…`}</p>
+                ))}
+                {actTab === "tasks" && sel.tasks.map((t) => {
+                  const tt = t as unknown as { id: string; task_id: string; created_at: string; tasks?: { title?: string } };
+                  return <p key={tt.id}><span className="text-muted-foreground">{new Date(tt.created_at).toLocaleString()}</span> {tt.tasks?.title ?? tt.task_id}</p>;
+                })}
+                {actTab === "refers" && sel.refers.map((r) => {
+                  const rr = r as unknown as { id: string; created_at: string; referee_tg_id: number; source: string; amount: number };
+                  return <p key={rr.id}><span className="text-muted-foreground">{new Date(rr.created_at).toLocaleString()}</span> from {rr.referee_tg_id} • {rr.source} • +{rr.amount}</p>;
+                })}
+                {actTab === "challenges" && sel.challenges.map((c) => {
+                  const cc = c as unknown as { id: string; claimed_at: string; challenges?: { title?: string }; challenge_id: string; reward?: number };
+                  return <p key={cc.id}><span className="text-muted-foreground">{new Date(cc.claimed_at).toLocaleString()}</span> {cc.challenges?.title ?? cc.challenge_id} {cc.reward != null && `• +${cc.reward}`}</p>;
+                })}
+                {actTab === "tickets" && sel.tickets.map((tk) => {
+                  const t = tk as unknown as { id: string; created_at: string; subject: string; status: string };
+                  return <p key={t.id}><span className="text-muted-foreground">{new Date(t.created_at).toLocaleString()}</span> [{t.status}] {t.subject}</p>;
+                })}
+                {actTab === "actions" && sel.actions.map((a) => (
+                  <p key={a.id}><span className="text-muted-foreground">{new Date(a.created_at).toLocaleString()}</span> {a.action} {a.delta != null && `• ${a.delta}`} {a.note && `• ${a.note}`}</p>
+                ))}
+                {(sel[actTab] as unknown[]).length === 0 && <p className="text-muted-foreground italic">No records.</p>}
+              </div>
             </div>
-            <div>
-              <p className="font-bold mt-2">Recent withdrawals</p>
-              {sel.withdrawals.slice(0, 10).map((w) => (
-                <p key={w.id} className="text-[10px]">{w.status} • {w.currency} {Number(w.net_amount).toFixed(6)} • {new Date(w.created_at).toLocaleDateString()}</p>
-              ))}
-            </div>
-          </div>
-        ); })()}
+          );
+        })()}
       </div>
+    </div>
+  );
+}
+
+function BalCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-background/40 p-2">
+      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`text-sm font-extrabold ${accent ?? "text-foreground"}`}>{value}</p>
     </div>
   );
 }

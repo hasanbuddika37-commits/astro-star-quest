@@ -162,3 +162,63 @@ export const getAdNetworks = createServerFn({ method: "POST" })
     return { networks: (rows ?? []).map((r) => ({ network: r.network, sdk_extra: r.sdk_extra })) };
   });
 
+
+// ─── Visit Site (new Watch-Ads sub-tab) ───
+type SiteRow = { id: number; label: string; url: string };
+
+export const getVisitSites = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ initData: z.string().min(10) }).parse(d))
+  .handler(async ({ data }) => {
+    const { requireProfile, getSetting } = await import("./tg-auth.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { profile } = await requireProfile(data.initData);
+    const sites = (await getSetting<SiteRow[]>("visit_sites", [])) ?? [];
+    const reward = Number(await getSetting("visit_site_reward", 5));
+    const watch_seconds = Number(await getSetting("visit_site_watch_seconds", 5));
+    const cd = Number(await getSetting("visit_site_cooldown_seconds", 86400));
+    const since = new Date(Date.now() - cd * 1000).toISOString();
+    const { data: recent } = await supabaseAdmin
+      .from("ad_views").select("slot, created_at")
+      .eq("tg_id", profile.tg_id).like("slot", "visit_%").gte("created_at", since);
+    const last = new Map<string, string>();
+    for (const r of recent ?? []) {
+      const cur = last.get(r.slot); if (!cur || r.created_at > cur) last.set(r.slot, r.created_at);
+    }
+    const now = Date.now();
+    const items = sites.map((s) => {
+      const slot = `visit_${s.id}`;
+      const l = last.get(slot);
+      const unlocks_at = l ? new Date(l).getTime() + cd * 1000 : 0;
+      return { ...s, ready: unlocks_at <= now, unlocks_in_ms: Math.max(0, unlocks_at - now) };
+    });
+    return { items, reward, watch_seconds, cooldown_seconds: cd };
+  });
+
+export const claimVisitSite = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({
+    initData: z.string().min(10),
+    site_id: z.number().int().min(1).max(999),
+    watched_ms: z.number().int().min(0).max(600000),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    const { requireProfile, creditCoins, getSetting } = await import("./tg-auth.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const sites = (await getSetting<SiteRow[]>("visit_sites", [])) ?? [];
+    const site = sites.find((s) => s.id === data.site_id);
+    if (!site) throw new Error("Unknown site");
+    const reward = Number(await getSetting("visit_site_reward", 5));
+    const need = Number(await getSetting("visit_site_watch_seconds", 5));
+    const cd = Number(await getSetting("visit_site_cooldown_seconds", 86400));
+    if (data.watched_ms < need * 1000) throw new Error(`Watch at least ${need}s to earn`);
+    const { profile } = await requireProfile(data.initData);
+    const slot = `visit_${site.id}`;
+    const since = new Date(Date.now() - cd * 1000).toISOString();
+    const { data: rec } = await supabaseAdmin.from("ad_views")
+      .select("id").eq("tg_id", profile.tg_id).eq("slot", slot).gte("created_at", since).limit(1);
+    if (rec && rec.length) throw new Error("On cooldown");
+    await supabaseAdmin.from("ad_views").insert({
+      tg_id: profile.tg_id, slot, network: "visit_site", reward,
+    });
+    const new_balance = await creditCoins(profile.tg_id, reward, "visit_site", { site_id: site.id });
+    return { reward, new_balance };
+  });

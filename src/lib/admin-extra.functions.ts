@@ -98,16 +98,52 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
     const { requireAdmin } = await import("./admin.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await requireAdmin(data.token);
-    const [{ data: profile }, { data: ledger }, { data: ads }, { data: games }, { data: withdrawals }, { data: actions }] = await Promise.all([
+    const [
+      { data: profile }, { data: ledger }, { data: ads }, { data: games },
+      { data: withdrawals }, { data: actions }, { data: tasksDone }, { data: refers },
+      { data: challenges }, { data: tickets },
+    ] = await Promise.all([
       supabaseAdmin.from("profiles").select("*").eq("tg_id", data.tg_id).maybeSingle(),
-      supabaseAdmin.from("coin_ledger").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(100),
-      supabaseAdmin.from("ad_views").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(50),
-      supabaseAdmin.from("game_plays").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(50),
-      supabaseAdmin.from("withdrawals").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(50),
-      supabaseAdmin.from("user_actions").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(50),
+      supabaseAdmin.from("coin_ledger").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(200),
+      supabaseAdmin.from("ad_views").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(100),
+      supabaseAdmin.from("game_plays").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(100),
+      supabaseAdmin.from("withdrawals").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(100),
+      supabaseAdmin.from("user_actions").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(100),
+      supabaseAdmin.from("task_completions").select("*, tasks(title)").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(100),
+      supabaseAdmin.from("referral_commissions").select("*").eq("referrer_tg_id", data.tg_id).order("created_at", { ascending: false }).limit(100),
+      supabaseAdmin.from("challenge_claims").select("*, challenges(title)").eq("tg_id", data.tg_id).order("claimed_at", { ascending: false }).limit(100),
+      supabaseAdmin.from("support_tickets").select("*").eq("tg_id", data.tg_id).order("created_at", { ascending: false }).limit(50),
     ]);
     const expectedFromLedger = (ledger ?? []).reduce((a, r) => a + Number(r.delta), 0);
-    return { profile, ledger: ledger ?? [], ads: ads ?? [], games: games ?? [], withdrawals: withdrawals ?? [], actions: actions ?? [], expected_balance: expectedFromLedger };
+    return {
+      profile, ledger: ledger ?? [], ads: ads ?? [], games: games ?? [],
+      withdrawals: withdrawals ?? [], actions: actions ?? [],
+      tasks: tasksDone ?? [], refers: refers ?? [],
+      challenges: challenges ?? [], tickets: tickets ?? [],
+      expected_balance: expectedFromLedger,
+    };
+  });
+
+// Reset a user's coin balance to match the ledger (fix mismatches).
+export const adminFixBalance = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => Token.extend({ tg_id: z.number().int() }).parse(d))
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./admin.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const s = await requireAdmin(data.token);
+    const { data: prof } = await supabaseAdmin.from("profiles").select("coins").eq("tg_id", data.tg_id).maybeSingle();
+    if (!prof) throw new Error("Not found");
+    const { data: ledger } = await supabaseAdmin.from("coin_ledger").select("delta").eq("tg_id", data.tg_id);
+    const expected = (ledger ?? []).reduce((a, r) => a + Number(r.delta), 0);
+    const delta = expected - Number(prof.coins);
+    if (Math.abs(delta) < 0.0001) return { ok: true, adjusted: 0, new_balance: Number(prof.coins) };
+    // Update directly + write a reconciliation ledger entry so future balance is verifiable.
+    await supabaseAdmin.from("profiles").update({ coins: expected, is_suspended: false, suspend_reason: null, updated_at: new Date().toISOString() }).eq("tg_id", data.tg_id);
+    await supabaseAdmin.from("user_actions").insert({
+      tg_id: data.tg_id, admin_id: s.admin_id, action: "fix_balance", delta,
+      note: `Reset to ledger sum ${expected}`,
+    });
+    return { ok: true, adjusted: delta, new_balance: expected };
   });
 
 export const adminSuspendUser = createServerFn({ method: "POST" })

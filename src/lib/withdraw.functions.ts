@@ -64,9 +64,11 @@ export const getWithdrawData = createServerFn({ method: "POST" })
 
     const has_pending = (history ?? []).some((w) => w.status === "pending");
     const p = profile as unknown as Record<string, string | null>;
+    const gameLevel = Number((profile as unknown as { game_level?: number }).game_level ?? 1);
     const met =
       ads_today >= minAdsDaily &&
       Number(profile.verified_refer_count ?? 0) >= minRefers &&
+      gameLevel >= minGameLevel &&
       (!requireMain || main_pending === 0);
 
     return {
@@ -84,6 +86,7 @@ export const getWithdrawData = createServerFn({ method: "POST" })
       requirements: {
         min_ads_daily: minAdsDaily, ads_done_today: ads_today,
         min_refers: minRefers, refers_done: Number(profile.verified_refer_count ?? 0),
+        min_game_level: minGameLevel, game_level: gameLevel,
         require_main_tasks: requireMain, main_tasks_pending: main_pending,
         met,
       },

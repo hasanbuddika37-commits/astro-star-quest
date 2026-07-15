@@ -10,7 +10,7 @@ import {
 } from "@/lib/admin.functions";
 import {
   adminListAdBlocks, adminSaveAdBlock, adminDeleteAdBlock,
-  adminListUsers, adminGetUserDetail, adminSuspendUser, adminAdjustBalance,
+  adminListUsers, adminGetUserDetail, adminSuspendUser, adminAdjustBalance, adminFixBalance,
   adminPostToCommunity, adminAdNetworkCounts,
 } from "@/lib/admin-extra.functions";
 import { useTelegram } from "@/lib/telegram-webapp";

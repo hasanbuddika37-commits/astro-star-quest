@@ -532,7 +532,7 @@ function Users({ token }: { token: string }) {
                   <p key={a.id}><span className="text-muted-foreground">{new Date(a.created_at).toLocaleString()}</span> {a.slot} • {a.network ?? "-"} • +{a.reward}</p>
                 ))}
                 {actTab === "games" && sel.games.map((g) => (
-                  <p key={g.id}><span className="text-muted-foreground">{new Date(g.created_at).toLocaleString()}</span> L{g.level_reached} • score {g.score} • +{g.coins_earned}</p>
+                  <p key={g.id}><span className="text-muted-foreground">{new Date(g.created_at).toLocaleString()}</span> L{g.level_reached} • +{g.coins_earned} {g.revived && "• revived"}</p>
                 ))}
                 {actTab === "withdrawals" && sel.withdrawals.map((w) => (
                   <p key={w.id}><span className="text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</span> [{w.status}] {w.currency} {Number(w.net_amount).toFixed(6)} • {w.coins} 🪙 {w.tx_id && `• TX ${w.tx_id.slice(0, 12)}…`}</p>

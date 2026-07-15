@@ -50,6 +50,7 @@ export const getWithdrawData = createServerFn({ method: "POST" })
     const feeFlatUsd = Number(await getSetting("withdraw_fee_flat_usd", 0.01));
     const minAdsDaily = Number(await getSetting("withdraw_min_ads_daily", 20));
     const minRefers = Number(await getSetting("withdraw_min_refers", 2));
+    const minGameLevel = Number(await getSetting("withdraw_min_game_level", 5));
     const requireMain = Boolean(await getSetting("withdraw_require_main_tasks", true));
 
     const [{ data: history }, ads_today, main_pending] = await Promise.all([

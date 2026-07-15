@@ -143,6 +143,7 @@ export const requestWithdraw = createServerFn({ method: "POST" })
     const feeFlatUsd = Number(await getSetting("withdraw_fee_flat_usd", 0.01));
     const minAdsDaily = Number(await getSetting("withdraw_min_ads_daily", 20));
     const minRefers = Number(await getSetting("withdraw_min_refers", 2));
+    const minGameLevel = Number(await getSetting("withdraw_min_game_level", 5));
     const requireMain = Boolean(await getSetting("withdraw_require_main_tasks", true));
 
     const adsToday = await todayAdCount(profile.tg_id);
@@ -151,6 +152,10 @@ export const requestWithdraw = createServerFn({ method: "POST" })
     }
     if (Number(profile.verified_refer_count ?? 0) < minRefers) {
       throw new Error(`Refer at least ${minRefers} verified friends first.`);
+    }
+    const gLevel = Number((profile as unknown as { game_level?: number }).game_level ?? 1);
+    if (gLevel < minGameLevel) {
+      throw new Error(`Reach game level ${minGameLevel} first (you're L${gLevel}).`);
     }
     if (requireMain) {
       const pend = await unfinishedMainTasks(profile.tg_id);

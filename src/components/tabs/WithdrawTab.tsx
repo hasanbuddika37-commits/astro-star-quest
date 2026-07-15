@@ -105,6 +105,7 @@ export default function WithdrawTab({ initData, profile, onCoins }: { initData: 
         <ul className="mt-1 space-y-0.5 text-muted-foreground">
           <li>📺 Today's ads: <b className={d.requirements.ads_done_today >= d.requirements.min_ads_daily ? "text-green-300" : "text-foreground"}>{d.requirements.ads_done_today}</b> / {d.requirements.min_ads_daily}</li>
           <li>👥 Verified refers: <b className={d.requirements.refers_done >= d.requirements.min_refers ? "text-green-300" : "text-foreground"}>{d.requirements.refers_done}</b> / {d.requirements.min_refers}</li>
+          <li>🎮 Game level: <b className={d.requirements.game_level >= d.requirements.min_game_level ? "text-green-300" : "text-foreground"}>{d.requirements.game_level}</b> / {d.requirements.min_game_level}</li>
           {d.requirements.require_main_tasks && (
             <li>✅ Main tasks pending: <b className={d.requirements.main_tasks_pending === 0 ? "text-green-300" : "text-destructive"}>{d.requirements.main_tasks_pending}</b></li>
           )}

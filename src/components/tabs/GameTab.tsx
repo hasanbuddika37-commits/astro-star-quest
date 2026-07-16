@@ -98,6 +98,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
     const reset = () => {
       stateRef.current = { y: H / 2, v: 0, obstacles: [], frame: 0, score: 0, alive: true };
       lastAdScoreRef.current = 0;
+      nextAdAtRef.current = nextAdGap();
       pausedRef.current = false;
     };
     const spawn = () => {
@@ -127,11 +128,12 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
         for (const o of s.obstacles) {
           if (!o.passed && o.x + PIPE_W < ROCKET_X) {
             o.passed = true; s.score++; setScore(s.score);
-            // Every AD_EVERY coins earned, pause & play an ad (Adsgram-preferred).
-            if (s.score - lastAdScoreRef.current >= AD_EVERY) {
+            // Every 5-10 coins earned (random), pause & play Adsgram interstitial.
+            if (s.score >= nextAdAtRef.current) {
               lastAdScoreRef.current = s.score;
               triggerMidGameAd();
             }
+          }
           }
           if (ROCKET_X + 16 > o.x && ROCKET_X - 16 < o.x + PIPE_W) {
             if (s.y - 14 < o.gapY || s.y + 14 > o.gapY + o.gap) die();

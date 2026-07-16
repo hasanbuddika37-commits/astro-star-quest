@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { finishGame } from "@/lib/game.functions";
 import { claimAd, getRandomAdNetwork, getAdNetworks } from "@/lib/ads.functions";
-import { showAd, showAdWithFallback } from "@/lib/adsdk";
+import { showAdWithFallback } from "@/lib/adsdk";
 import type { Profile } from "../MainApp";
 
 

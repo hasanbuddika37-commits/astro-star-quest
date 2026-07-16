@@ -13,7 +13,9 @@ const GRAVITY = 0.35;
 const FLAP = -6.5;
 const PIPE_W = 60;
 const ROCKET_X = 70;
-const AD_EVERY = 5; // show an ad every N coins earned
+const AD_MIN = 5;
+const AD_MAX = 10;
+const nextAdGap = () => AD_MIN + Math.floor(Math.random() * (AD_MAX - AD_MIN + 1));
 
 export default function GameTab({ initData, profile, onCoins }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

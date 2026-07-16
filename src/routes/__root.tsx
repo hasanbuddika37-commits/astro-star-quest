@@ -82,6 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
       },
       { name: "theme-color", content: "#0f0820" },
+      { name: "monetag", content: "f226a17fcc24476933441e96cd6dd1d7" },
       { title: "AstroBlitz — Earn Crypto Rewards" },
       {
         name: "description",

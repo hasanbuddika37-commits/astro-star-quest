@@ -13,7 +13,9 @@ const GRAVITY = 0.35;
 const FLAP = -6.5;
 const PIPE_W = 60;
 const ROCKET_X = 70;
-const AD_EVERY = 5; // show an ad every N coins earned
+const AD_MIN = 5;
+const AD_MAX = 10;
+const nextAdGap = () => AD_MIN + Math.floor(Math.random() * (AD_MAX - AD_MIN + 1));
 
 export default function GameTab({ initData, profile, onCoins }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -22,6 +24,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
   const [best, setBest] = useState(() => Number(localStorage.getItem("ab_best") ?? 0));
   const [reward, setReward] = useState<number | null>(null);
   const [adPlaying, setAdPlaying] = useState(false);
+  const [waitingResume, setWaitingResume] = useState(false);
   const finish = useServerFn(finishGame);
   const watchAdFn = useServerFn(claimAd);
   const pickAd = useServerFn(getRandomAdNetwork);
@@ -33,44 +36,52 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
 
   const pausedRef = useRef(false);
   const lastAdScoreRef = useRef(0);
+  const nextAdAtRef = useRef(nextAdGap());
   const stateRef = useRef({
     y: 0, v: 0, obstacles: [] as Obstacle[], frame: 0, score: 0, alive: false,
   });
 
-  // Build an ad chain that STRONGLY prefers Adsgram, then falls back to others.
-  async function playAdsgramPreferred(): Promise<boolean> {
+  // Build an ad chain that STRONGLY prefers Adsgram interstitial, then falls back to others.
+  async function playAdsgramPreferred(mode: "interstitial" | "reward" = "interstitial"): Promise<boolean> {
     try {
       const all = await listNets({ data: { initData } }).catch(() => ({ networks: [] as { network: string; sdk_extra: unknown }[] }));
       const nets = all.networks ?? [];
       if (nets.length === 0) return false;
       const adsgram = nets.find((n) => n.network === "adsgram");
       const others = nets.filter((n) => n.network !== "adsgram");
-      // Shuffle others for fallback order
       others.sort(() => Math.random() - 0.5);
       const primary = adsgram ?? others[0];
       const fallbacks = adsgram ? others : others.slice(1);
       await showAdWithFallback(
         { network: primary.network, sdk_extra: primary.sdk_extra as never },
         fallbacks.map((f) => ({ network: f.network, sdk_extra: f.sdk_extra as never })),
-        "reward",
+        mode,
       );
       return true;
     } catch { return false; }
   }
 
-  // Pause game, show ad, resume. Called from inside the render loop.
+  // Pause game, show ad, then wait for user to tap Resume before continuing.
   async function triggerMidGameAd() {
     if (pausedRef.current) return;
     pausedRef.current = true;
     setAdPlaying(true);
     try {
-      await playAdsgramPreferred();
+      await playAdsgramPreferred("interstitial");
     } finally {
       setAdPlaying(false);
-      // small delay so the user sees the game before it resumes
-      setTimeout(() => { pausedRef.current = false; }, 300);
+      setWaitingResume(true);
+      // stays paused until user taps Resume
     }
   }
+
+  function resumeAfterAd() {
+    setWaitingResume(false);
+    // schedule next ad gap
+    nextAdAtRef.current = stateRef.current.score + nextAdGap();
+    pausedRef.current = false;
+  }
+
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;
@@ -87,6 +98,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
     const reset = () => {
       stateRef.current = { y: H / 2, v: 0, obstacles: [], frame: 0, score: 0, alive: true };
       lastAdScoreRef.current = 0;
+      nextAdAtRef.current = nextAdGap();
       pausedRef.current = false;
     };
     const spawn = () => {
@@ -116,12 +128,13 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
         for (const o of s.obstacles) {
           if (!o.passed && o.x + PIPE_W < ROCKET_X) {
             o.passed = true; s.score++; setScore(s.score);
-            // Every AD_EVERY coins earned, pause & play an ad (Adsgram-preferred).
-            if (s.score - lastAdScoreRef.current >= AD_EVERY) {
+            // Every 5-10 coins earned (random), pause & play Adsgram interstitial.
+            if (s.score >= nextAdAtRef.current) {
               lastAdScoreRef.current = s.score;
               triggerMidGameAd();
             }
           }
+
           if (ROCKET_X + 16 > o.x && ROCKET_X - 16 < o.x + PIPE_W) {
             if (s.y - 14 < o.gapY || s.y + 14 > o.gapY + o.gap) die();
           }
@@ -241,10 +254,27 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
             <div className="rounded-2xl border border-border bg-card/95 px-5 py-4 text-center">
               <p className="text-2xl">📺</p>
               <p className="mt-1 text-sm font-bold">Short ad playing…</p>
-              <p className="text-[11px] text-muted-foreground">Game paused. Resumes automatically.</p>
+              <p className="text-[11px] text-muted-foreground">Game paused.</p>
             </div>
           </div>
         )}
+        {status === "playing" && !adPlaying && waitingResume && (
+          <div className="absolute inset-0 z-10 grid place-items-center bg-background/70 backdrop-blur-sm">
+            <div className="w-64 rounded-2xl border border-border bg-card/95 p-5 text-center">
+              <p className="text-3xl">🚀</p>
+              <h3 className="mt-2 text-base font-extrabold">Ready to continue?</h3>
+              <p className="text-[11px] text-muted-foreground">Score {score} • Tap Play to resume from here.</p>
+              <button
+                onClick={resumeAfterAd}
+                className="mt-4 h-11 w-full rounded-xl text-sm font-bold text-primary-foreground"
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                ▶️ Play
+              </button>
+            </div>
+          </div>
+        )}
+
         {status !== "playing" && (
           <div className="absolute inset-0 grid place-items-center bg-background/40 backdrop-blur-sm">
             <div className="w-72 rounded-2xl border border-border bg-card/95 p-5 text-center">
@@ -254,7 +284,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
                   <h3 className="mt-2 text-lg font-extrabold">Ready, Astronaut?</h3>
                   <p className="text-xs text-muted-foreground">Tap to flap. Avoid the nebulas.</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">Reward: <b className="text-gold">1 coin per level</b></p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">A short ad plays every {AD_EVERY} coins.</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">A short ad plays every {AD_MIN}–{AD_MAX} coins.</p>
                 </>
               )}
               {status === "dead" && reward === null && (
@@ -304,7 +334,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
         )}
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        Earn 1 coin per level. Short ad every {AD_EVERY} coins — game pauses so you don't crash. 🚀
+        Earn 1 coin per level. Short ad every {AD_MIN}–{AD_MAX} coins — tap Play to continue after. 🚀
       </p>
     </div>
   );

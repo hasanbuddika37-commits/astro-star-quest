@@ -334,7 +334,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
         )}
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        Earn 1 coin per level. Short ad every {AD_EVERY} coins — game pauses so you don't crash. 🚀
+        Earn 1 coin per level. Short ad every {AD_MIN}–{AD_MAX} coins — tap Play to continue after. 🚀
       </p>
     </div>
   );

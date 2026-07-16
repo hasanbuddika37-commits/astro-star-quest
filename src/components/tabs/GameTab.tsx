@@ -284,7 +284,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
                   <h3 className="mt-2 text-lg font-extrabold">Ready, Astronaut?</h3>
                   <p className="text-xs text-muted-foreground">Tap to flap. Avoid the nebulas.</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">Reward: <b className="text-gold">1 coin per level</b></p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">A short ad plays every {AD_EVERY} coins.</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">A short ad plays every {AD_MIN}–{AD_MAX} coins.</p>
                 </>
               )}
               {status === "dead" && reward === null && (

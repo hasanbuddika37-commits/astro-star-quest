@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { finishGame } from "@/lib/game.functions";
 import { claimAd, getRandomAdNetwork, getAdNetworks } from "@/lib/ads.functions";
-import { showAd } from "@/lib/adsdk";
+import { showAdWithFallback } from "@/lib/adsdk";
 import type { Profile } from "../MainApp";
 
 
@@ -13,6 +13,7 @@ const GRAVITY = 0.35;
 const FLAP = -6.5;
 const PIPE_W = 60;
 const ROCKET_X = 70;
+const AD_EVERY = 5; // show an ad every N coins earned
 
 export default function GameTab({ initData, profile, onCoins }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -20,6 +21,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(() => Number(localStorage.getItem("ab_best") ?? 0));
   const [reward, setReward] = useState<number | null>(null);
+  const [adPlaying, setAdPlaying] = useState(false);
   const finish = useServerFn(finishGame);
   const watchAdFn = useServerFn(claimAd);
   const pickAd = useServerFn(getRandomAdNetwork);
@@ -29,9 +31,46 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
   const [busy, setBusy] = useState<null | "play" | "revive" | "claim">(null);
   const [error, setError] = useState<string | null>(null);
 
+  const pausedRef = useRef(false);
+  const lastAdScoreRef = useRef(0);
   const stateRef = useRef({
     y: 0, v: 0, obstacles: [] as Obstacle[], frame: 0, score: 0, alive: false,
   });
+
+  // Build an ad chain that STRONGLY prefers Adsgram, then falls back to others.
+  async function playAdsgramPreferred(): Promise<boolean> {
+    try {
+      const all = await listNets({ data: { initData } }).catch(() => ({ networks: [] as { network: string; sdk_extra: unknown }[] }));
+      const nets = all.networks ?? [];
+      if (nets.length === 0) return false;
+      const adsgram = nets.find((n) => n.network === "adsgram");
+      const others = nets.filter((n) => n.network !== "adsgram");
+      // Shuffle others for fallback order
+      others.sort(() => Math.random() - 0.5);
+      const primary = adsgram ?? others[0];
+      const fallbacks = adsgram ? others : others.slice(1);
+      await showAdWithFallback(
+        { network: primary.network, sdk_extra: primary.sdk_extra as never },
+        fallbacks.map((f) => ({ network: f.network, sdk_extra: f.sdk_extra as never })),
+        "reward",
+      );
+      return true;
+    } catch { return false; }
+  }
+
+  // Pause game, show ad, resume. Called from inside the render loop.
+  async function triggerMidGameAd() {
+    if (pausedRef.current) return;
+    pausedRef.current = true;
+    setAdPlaying(true);
+    try {
+      await playAdsgramPreferred();
+    } finally {
+      setAdPlaying(false);
+      // small delay so the user sees the game before it resumes
+      setTimeout(() => { pausedRef.current = false; }, 300);
+    }
+  }
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;
@@ -47,6 +86,8 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
 
     const reset = () => {
       stateRef.current = { y: H / 2, v: 0, obstacles: [], frame: 0, score: 0, alive: true };
+      lastAdScoreRef.current = 0;
+      pausedRef.current = false;
     };
     const spawn = () => {
       const gap = 160;
@@ -63,11 +104,11 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
       const s = stateRef.current;
       ctx.fillStyle = "#0f0820"; ctx.fillRect(0, 0, W, H);
       for (const st of stars) {
-        st.x -= 0.4; if (st.x < 0) st.x = W;
+        if (!pausedRef.current) { st.x -= 0.4; if (st.x < 0) st.x = W; }
         ctx.globalAlpha = 0.6; ctx.fillStyle = "#fff";
         ctx.fillRect(st.x, st.y, st.s, st.s); ctx.globalAlpha = 1;
       }
-      if (s.alive) {
+      if (s.alive && !pausedRef.current) {
         s.v += GRAVITY; s.y += s.v; s.frame++;
         if (s.frame % 90 === 0) spawn();
         for (const o of s.obstacles) o.x -= 2.6;
@@ -75,6 +116,11 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
         for (const o of s.obstacles) {
           if (!o.passed && o.x + PIPE_W < ROCKET_X) {
             o.passed = true; s.score++; setScore(s.score);
+            // Every AD_EVERY coins earned, pause & play an ad (Adsgram-preferred).
+            if (s.score - lastAdScoreRef.current >= AD_EVERY) {
+              lastAdScoreRef.current = s.score;
+              triggerMidGameAd();
+            }
           }
           if (ROCKET_X + 16 > o.x && ROCKET_X - 16 < o.x + PIPE_W) {
             if (s.y - 14 < o.gapY || s.y + 14 > o.gapY + o.gap) die();
@@ -96,7 +142,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
       raf = requestAnimationFrame(tick);
     };
     const flap = () => {
-      if (status === "playing") {
+      if (status === "playing" && !pausedRef.current) {
         stateRef.current.v = FLAP;
         window.Telegram?.WebApp?.HapticFeedback?.impactOccurred("light");
       }
@@ -116,49 +162,15 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
     return () => { c.removeEventListener("pointerdown", flap); cancelAnimationFrame(raf); };
   }, [status]);
 
-  // Pick TWO different networks weighted toward adsgram, race them, return the
-  // first that plays. Adsgram is inserted with high weight so it wins most tosses.
-  async function pickTwoNetworks(): Promise<{ network: string; sdk_extra: unknown }[]> {
-    const all = await listNets({ data: { initData } }).catch(() => ({ networks: [] as { network: string; sdk_extra: unknown }[] }));
-    const nets = all.networks ?? [];
-    if (nets.length === 0) return [];
-    if (nets.length === 1) return [nets[0]];
-    const adsgram = nets.find((n) => n.network === "adsgram");
-    const others = nets.filter((n) => n.network !== "adsgram");
-    // 70% chance adsgram is one of the two, then pick a random second network.
-    const primary = adsgram && Math.random() < 0.7 ? adsgram : nets[Math.floor(Math.random() * nets.length)];
-    const pool = nets.filter((n) => n.network !== primary.network);
-    const secondary = pool[Math.floor(Math.random() * pool.length)];
-    return [primary, secondary].filter(Boolean) as { network: string; sdk_extra: unknown }[];
-  }
-
-  // Show an ad and resolve true on completion, false on failure.
-  // Runs 2 networks in parallel and resolves as soon as one plays; the other's
-  // load is not user-visible if it loses the race.
   async function tryShowRewardAd(): Promise<boolean> {
-    try {
-      const picks = await pickTwoNetworks();
-      if (picks.length === 0) return false;
-      await Promise.any(picks.map((p) => showAd(p.network, p.sdk_extra as never, "reward")));
-      return true;
-    } catch { return false; }
+    return playAdsgramPreferred();
   }
-
 
   async function onPlay() {
     if (busy) return;
     setError(null);
     setBusy("play");
     try {
-      // Random ad: ~1 in 4 play taps shows an ad. If shown, wait for it
-      // to finish BEFORE starting the game so the player doesn't crash mid-ad.
-      const showsAd = Math.random() < 0.25;
-      if (showsAd) {
-        const ok = await tryShowRewardAd();
-        if (!ok) {
-          // If a chosen ad fails to play, don't punish the user — just start.
-        }
-      }
       setReward(null);
       setScore(0);
       setReviveUsed(false);
@@ -173,7 +185,6 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
     setError(null);
     setBusy("claim");
     try {
-      // Watch ad first — coins ONLY credit if ad completes.
       const ok = await tryShowRewardAd();
       if (!ok) { setError("Ad didn't play. Try again to claim your coins."); return; }
       const net = await pickAd({ data: { initData } });
@@ -225,6 +236,15 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
 
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-3xl border border-border bg-card/40" style={{ boxShadow: "var(--shadow-glow-purple)" }}>
         <canvas ref={canvasRef} className="h-full w-full touch-none" />
+        {status === "playing" && adPlaying && (
+          <div className="absolute inset-0 z-10 grid place-items-center bg-background/70 backdrop-blur-sm">
+            <div className="rounded-2xl border border-border bg-card/95 px-5 py-4 text-center">
+              <p className="text-2xl">📺</p>
+              <p className="mt-1 text-sm font-bold">Short ad playing…</p>
+              <p className="text-[11px] text-muted-foreground">Game paused. Resumes automatically.</p>
+            </div>
+          </div>
+        )}
         {status !== "playing" && (
           <div className="absolute inset-0 grid place-items-center bg-background/40 backdrop-blur-sm">
             <div className="w-72 rounded-2xl border border-border bg-card/95 p-5 text-center">
@@ -234,6 +254,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
                   <h3 className="mt-2 text-lg font-extrabold">Ready, Astronaut?</h3>
                   <p className="text-xs text-muted-foreground">Tap to flap. Avoid the nebulas.</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">Reward: <b className="text-gold">1 coin per level</b></p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">A short ad plays every {AD_EVERY} coins.</p>
                 </>
               )}
               {status === "dead" && reward === null && (
@@ -276,14 +297,14 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
             </div>
           </div>
         )}
-        {status === "playing" && (
+        {status === "playing" && !adPlaying && (
           <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-sm font-extrabold">
             {score}
           </div>
         )}
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        Earn 1 coin per level. Coins only credit when you watch an ad and claim. 🚀
+        Earn 1 coin per level. Short ad every {AD_EVERY} coins — game pauses so you don't crash. 🚀
       </p>
     </div>
   );

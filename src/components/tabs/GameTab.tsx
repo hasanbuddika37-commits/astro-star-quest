@@ -24,6 +24,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
   const [best, setBest] = useState(() => Number(localStorage.getItem("ab_best") ?? 0));
   const [reward, setReward] = useState<number | null>(null);
   const [adPlaying, setAdPlaying] = useState(false);
+  const [waitingResume, setWaitingResume] = useState(false);
   const finish = useServerFn(finishGame);
   const watchAdFn = useServerFn(claimAd);
   const pickAd = useServerFn(getRandomAdNetwork);
@@ -35,44 +36,52 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
 
   const pausedRef = useRef(false);
   const lastAdScoreRef = useRef(0);
+  const nextAdAtRef = useRef(nextAdGap());
   const stateRef = useRef({
     y: 0, v: 0, obstacles: [] as Obstacle[], frame: 0, score: 0, alive: false,
   });
 
-  // Build an ad chain that STRONGLY prefers Adsgram, then falls back to others.
-  async function playAdsgramPreferred(): Promise<boolean> {
+  // Build an ad chain that STRONGLY prefers Adsgram interstitial, then falls back to others.
+  async function playAdsgramPreferred(mode: "interstitial" | "reward" = "interstitial"): Promise<boolean> {
     try {
       const all = await listNets({ data: { initData } }).catch(() => ({ networks: [] as { network: string; sdk_extra: unknown }[] }));
       const nets = all.networks ?? [];
       if (nets.length === 0) return false;
       const adsgram = nets.find((n) => n.network === "adsgram");
       const others = nets.filter((n) => n.network !== "adsgram");
-      // Shuffle others for fallback order
       others.sort(() => Math.random() - 0.5);
       const primary = adsgram ?? others[0];
       const fallbacks = adsgram ? others : others.slice(1);
       await showAdWithFallback(
         { network: primary.network, sdk_extra: primary.sdk_extra as never },
         fallbacks.map((f) => ({ network: f.network, sdk_extra: f.sdk_extra as never })),
-        "reward",
+        mode,
       );
       return true;
     } catch { return false; }
   }
 
-  // Pause game, show ad, resume. Called from inside the render loop.
+  // Pause game, show ad, then wait for user to tap Resume before continuing.
   async function triggerMidGameAd() {
     if (pausedRef.current) return;
     pausedRef.current = true;
     setAdPlaying(true);
     try {
-      await playAdsgramPreferred();
+      await playAdsgramPreferred("interstitial");
     } finally {
       setAdPlaying(false);
-      // small delay so the user sees the game before it resumes
-      setTimeout(() => { pausedRef.current = false; }, 300);
+      setWaitingResume(true);
+      // stays paused until user taps Resume
     }
   }
+
+  function resumeAfterAd() {
+    setWaitingResume(false);
+    // schedule next ad gap
+    nextAdAtRef.current = stateRef.current.score + nextAdGap();
+    pausedRef.current = false;
+  }
+
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;

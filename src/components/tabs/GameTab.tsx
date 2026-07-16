@@ -254,10 +254,27 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
             <div className="rounded-2xl border border-border bg-card/95 px-5 py-4 text-center">
               <p className="text-2xl">📺</p>
               <p className="mt-1 text-sm font-bold">Short ad playing…</p>
-              <p className="text-[11px] text-muted-foreground">Game paused. Resumes automatically.</p>
+              <p className="text-[11px] text-muted-foreground">Game paused.</p>
             </div>
           </div>
         )}
+        {status === "playing" && !adPlaying && waitingResume && (
+          <div className="absolute inset-0 z-10 grid place-items-center bg-background/70 backdrop-blur-sm">
+            <div className="w-64 rounded-2xl border border-border bg-card/95 p-5 text-center">
+              <p className="text-3xl">🚀</p>
+              <h3 className="mt-2 text-base font-extrabold">Ready to continue?</h3>
+              <p className="text-[11px] text-muted-foreground">Score {score} • Tap Play to resume from here.</p>
+              <button
+                onClick={resumeAfterAd}
+                className="mt-4 h-11 w-full rounded-xl text-sm font-bold text-primary-foreground"
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                ▶️ Play
+              </button>
+            </div>
+          </div>
+        )}
+
         {status !== "playing" && (
           <div className="absolute inset-0 grid place-items-center bg-background/40 backdrop-blur-sm">
             <div className="w-72 rounded-2xl border border-border bg-card/95 p-5 text-center">

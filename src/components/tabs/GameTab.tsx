@@ -134,7 +134,7 @@ export default function GameTab({ initData, profile, onCoins }: Props) {
               triggerMidGameAd();
             }
           }
-          }
+
           if (ROCKET_X + 16 > o.x && ROCKET_X - 16 < o.x + PIPE_W) {
             if (s.y - 14 < o.gapY || s.y + 14 > o.gapY + o.gap) die();
           }
